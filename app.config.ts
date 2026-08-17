@@ -24,7 +24,7 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
   },
   web: {
-    output: 'server',
+    output: process.env.EXPO_WEB_OUTPUT === 'static' ? 'static' : 'server',
     favicon: './assets/images/favicon.png',
   },
   plugins: [

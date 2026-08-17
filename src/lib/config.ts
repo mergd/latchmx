@@ -31,7 +31,7 @@ export const bmxConfig = {
 };
 
 export function hasBmxCredentials(): boolean {
-  return bmxConfig.clientId.length > 0 && bmxConfig.clientSecret.length > 0;
+  return bmxConfig.clientId.length > 0;
 }
 
 export function bmxApiBaseUrl(): string {

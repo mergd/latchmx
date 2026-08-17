@@ -38,13 +38,16 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.123.0"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "export:web": "EXPO_WEB_OUTPUT=static expo export --platform web",
+    "deploy": "bun run export:web && wrangler deploy",
     "lint": "expo lint"
   },
   "packageManager": "bun@1.3.11",

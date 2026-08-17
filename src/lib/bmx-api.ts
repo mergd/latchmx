@@ -42,9 +42,11 @@ export async function exchangeAuthorizationCode(
     grant_type: 'authorization_code',
     code,
     client_id: bmxConfig.clientId,
-    client_secret: bmxConfig.clientSecret,
     redirect_uri: redirectUri,
   });
+  if (bmxConfig.clientSecret.length > 0) {
+    body.set('client_secret', bmxConfig.clientSecret);
+  }
 
   const response = await fetch(`${clientAccountsOrigin()}/oauth/token`, {
     method: 'POST',
@@ -65,8 +67,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     client_id: bmxConfig.clientId,
-    client_secret: bmxConfig.clientSecret,
   });
+  if (bmxConfig.clientSecret.length > 0) {
+    body.set('client_secret', bmxConfig.clientSecret);
+  }
 
   const response = await fetch(`${clientAccountsOrigin()}/oauth/token`, {
     method: 'POST',
