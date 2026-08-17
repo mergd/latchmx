@@ -39,6 +39,7 @@ yarn-error.*
 
 public/dev-session.json
 .latch-tokens.json
+dist/dev-session.json
 
 # generated native folders
 /ios

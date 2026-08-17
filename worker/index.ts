@@ -20,6 +20,10 @@ export default {
       return proxyAccounts(request, env);
     }
 
+    if (url.pathname === '/dev-session.json') {
+      return new Response(null, { status: 404 });
+    }
+
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
