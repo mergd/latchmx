@@ -187,6 +187,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.well,
     overflow: 'hidden',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: color.line,
   },
   fill: {
     position: 'absolute',

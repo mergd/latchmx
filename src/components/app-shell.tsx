@@ -6,14 +6,18 @@ import { color } from '@/lib/theme';
 
 type AppShellProps = {
   children: ReactNode;
+  background?: ReactNode;
 };
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, background }: AppShellProps) {
   return (
     <View style={styles.page}>
-      <SafeAreaView style={styles.frame} edges={['top', 'bottom']}>
-        {children}
-      </SafeAreaView>
+      <View style={styles.frame}>
+        {background}
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          {children}
+        </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -29,5 +33,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 430,
     backgroundColor: color.canvas,
+    overflow: 'hidden',
+  },
+  safe: {
+    flex: 1,
   },
 });

@@ -1,0 +1,42 @@
+{
+  "canonicalMark": {
+    "path": "assets/brand/mark-master.png",
+    "format": "png",
+    "immutable": true,
+    "masterSize": 1024,
+    "clearSpace": 0.12,
+    "allowedTransforms": ["resize", "crop", "compose"]
+  },
+  "approvedMarkVariants": ["assets/brand/mark-master.png"],
+  "designLanguage": {
+    "palette": {
+      "surface": "#0B1A33",
+      "accent": "#C9A36A",
+      "ink": "#EDE8E0",
+      "navy": "#07101F",
+      "blue": "#3A6BFF",
+      "amber": "#E08A3C"
+    },
+    "typography": {
+      "display": { "family": "Fraunces", "weight": 600, "tracking": "-0.03em" },
+      "body": { "family": "Outfit", "weight": 400 },
+      "allowUppercaseEyebrows": false
+    },
+    "radius": "rounded",
+    "depth": "subtle",
+    "strokeWeight": 1,
+    "motion": { "motif": "none", "durationMs": 0, "reducedMotion": "static" }
+  },
+  "outputs": {
+    "directory": "public/brand",
+    "loginVisual": { "mode": "png-3-4", "width": 1080, "height": 1440 }
+  },
+  "socialMetadata": {
+    "title": "Latch",
+    "description": "Personal building access.",
+    "image": "/brand/login-visual.png",
+    "imageAlt": "Latch mark on a dark navy field.",
+    "card": "summary_large_image",
+    "url": "https://bmx.fldr.zip/"
+  }
+}

@@ -16,8 +16,8 @@ function statusLabel(mode: SessionMode): string {
   switch (mode) {
     case 'loading':
       return 'loading';
-    case 'demo':
-      return 'demo';
+    case 'signed_out':
+      return 'signed out';
     case 'signed_in':
       return 'live';
     default: {
@@ -31,8 +31,8 @@ function dotStyle(mode: SessionMode) {
   switch (mode) {
     case 'loading':
       return styles.dotMuted;
-    case 'demo':
-      return styles.dotAccent;
+    case 'signed_out':
+      return styles.dotMuted;
     case 'signed_in':
       return styles.dotOk;
     default: {
@@ -55,9 +55,6 @@ const styles = StyleSheet.create({
   },
   dotMuted: {
     backgroundColor: color.muted,
-  },
-  dotAccent: {
-    backgroundColor: color.accent,
   },
   dotOk: {
     backgroundColor: color.ok,

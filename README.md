@@ -7,9 +7,9 @@ bun install
 bun run web
 ```
 
-Then `i` for the iOS simulator. Demo doors work with no credentials.
+Then `i` for the iOS simulator.
 
-Live unlock needs ButterflyMX OAuth in `.env` (see `.env.example`). Production credentials are partner-gated; sandbox will not open your real building.
+Sign in with ButterflyMX (OAuth code) to load real doors. Local `.env` only needs `BMX_CLIENT_ID` for `bun run web`; production injects the client secret on the Worker.
 
 ## Web (Cloudflare)
 

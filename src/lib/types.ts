@@ -12,7 +12,7 @@ export type Door = {
 
 export type UnlockStatus = 'idle' | 'unlocking' | 'open' | 'error';
 
-export type SessionMode = 'loading' | 'demo' | 'signed_in';
+export type SessionMode = 'loading' | 'signed_out' | 'signed_in';
 
 export type AuthTokens = {
   accessToken: string;
