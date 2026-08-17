@@ -1,6 +1,8 @@
 import {
   ButterflyMxClient,
   ButterflyMxHttpError,
+  type ButterflyMxAccessPoint,
+  type ButterflyMxDevice,
   type ButterflyMxTenant,
 } from '@mergd/butterflymx';
 import { Platform } from 'react-native';
@@ -98,10 +100,14 @@ export function authorizationUrl(redirectUri: string): string {
 export async function fetchDoors(accessToken: string): Promise<Door[]> {
   const client = createBmxClient(accessToken);
   try {
-    const [tenants, buildings] = await Promise.all([
-      client.tenants.list(),
-      client.buildings.list(),
+    const [tenants, buildings, extraPointsRaw, extraDevicesRaw] = await Promise.all([
+      client.tenants.list({ per: 250 }),
+      client.buildings.list({ per: 250 }),
+      listOrEmpty<ButterflyMxAccessPoint>(client, '/v4/access_points'),
+      listOrEmpty<ButterflyMxDevice>(client, '/v4/devices'),
     ]);
+    const extraPoints = extraPointsRaw;
+    const extraDevices = extraDevicesRaw;
 
     const buildingNames = new Map<number, string>();
     for (const tenant of tenants) {
@@ -130,28 +136,50 @@ export async function fetchDoors(accessToken: string): Promise<Door[]> {
           return [] as Door[];
         }
         const [accessPoints, devices] = await Promise.all([
-          client.accessPoints.list({ buildingId }),
-          client.devices.list({ buildingId }),
+          client.accessPoints.list({ buildingId, per: 250 }),
+          client.devices.list({ buildingId, per: 250 }),
         ]);
         const buildingName = buildingNames.get(buildingId) ?? 'Building';
-        const fromPoints: Door[] = accessPoints.map((point) => ({
-          id: `ap-${point.id}`,
-          remoteId: point.id,
-          kind: 'access_point',
-          name: point.name,
-          buildingId,
-          buildingName,
-          tenantId,
-        }));
-        const fromDevices: Door[] = devices.map((device) => ({
-          id: `dev-${device.id}`,
-          remoteId: device.id,
-          kind: 'device',
-          name: device.name,
-          buildingId,
-          buildingName,
-          tenantId,
-        }));
+        const points = uniqueById([
+          ...accessPoints,
+          ...extraPoints.filter((point) => point.building_id === buildingId),
+        ]);
+        const hardware = uniqueById([
+          ...devices,
+          ...extraDevices.filter((device) => device.building_id === buildingId),
+        ]);
+        const fromPoints: Door[] = points.flatMap((point) => {
+          const record = asRecord(point);
+          if (record !== null && isHiddenRecord(record)) {
+            return [];
+          }
+          return [{
+            id: `ap-${point.id}`,
+            remoteId: point.id,
+            kind: 'access_point' as const,
+            name: point.name,
+            buildingId,
+            buildingName,
+            tenantId,
+            heldOpen: record !== null && isOpenRecord(record),
+          }];
+        });
+        const fromDevices: Door[] = hardware.flatMap((device) => {
+          const record = asRecord(device);
+          if (record !== null && isHiddenRecord(record)) {
+            return [];
+          }
+          return [{
+            id: `dev-${device.id}`,
+            remoteId: device.id,
+            kind: 'device' as const,
+            name: device.name,
+            buildingId,
+            buildingName,
+            tenantId,
+            heldOpen: record !== null && isOpenRecord(record),
+          }];
+        });
         return [...fromPoints, ...fromDevices];
       }),
     );
@@ -184,11 +212,86 @@ export async function releaseDoor(accessToken: string, door: Door): Promise<void
 function createBmxClient(accessToken: string): ButterflyMxClient {
   return new ButterflyMxClient({
     env: bmxConfig.env,
-    baseUrl: Platform.OS === 'web' ? '/api/bmx' : undefined,
+    baseUrl: Platform.OS === 'web' ? webProxyUrl('/api/bmx') : undefined,
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+function webProxyUrl(path: string): string {
+  const origin =
+    typeof globalThis.location?.origin === 'string'
+      ? globalThis.location.origin
+      : '';
+  if (origin.length === 0) {
+    throw new Error('Could not resolve the local API origin.');
+  }
+  return `${origin}${path}`;
+}
+
+async function listOrEmpty<T>(
+  client: ButterflyMxClient,
+  path: string,
+): Promise<T[]> {
+  try {
+    const payload = await client.request<unknown>(path, { query: { per: 250 } });
+    return Array.isArray(payload) ? (payload as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniqueById<T extends { id: number }>(items: T[]): T[] {
+  const seen = new Set<number>();
+  const next: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      continue;
+    }
+    seen.add(item.id);
+    next.push(item);
+  }
+  return next;
+}
+
+function isHiddenRecord(record: JsonRecord): boolean {
+  if (flagTrue(record.hidden) || flagTrue(record.is_hidden) || flagTrue(record.disabled)) {
+    return true;
+  }
+  if (record.visible === false || record.enabled === false || record.active === false) {
+    return true;
+  }
+  return false;
+}
+
+function isOpenRecord(record: JsonRecord): boolean {
+  if (
+    flagTrue(record.open) ||
+    flagTrue(record.opened) ||
+    flagTrue(record.held_open) ||
+    flagTrue(record.unlocked) ||
+    flagTrue(record.latch_open)
+  ) {
+    return true;
+  }
+  if (typeof record.status === 'string') {
+    const status = record.status.toLowerCase();
+    if (
+      status === 'open' ||
+      status === 'opened' ||
+      status === 'unlocked' ||
+      status === 'held_open' ||
+      status === 'held-open'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function flagTrue(value: unknown): boolean {
+  return value === true || value === 1 || value === 'true';
 }
 
 function tenantBuildingName(tenant: ButterflyMxTenant): string | null {
@@ -252,7 +355,7 @@ function errorMessage(payload: unknown, fallback: string): string {
 
 function clientAccountsOrigin(): string {
   if (Platform.OS === 'web') {
-    return '/api/accounts';
+    return webProxyUrl('/api/accounts');
   }
   return bmxAccountsBaseUrl();
 }

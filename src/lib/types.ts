@@ -1,3 +1,5 @@
+export const DOOR_OPEN_MS = 8000;
+
 export type DoorKind = 'access_point' | 'device';
 
 export type Door = {
@@ -8,6 +10,7 @@ export type Door = {
   buildingId: number;
   buildingName: string;
   tenantId: number;
+  heldOpen: boolean;
 };
 
 export type UnlockStatus = 'idle' | 'unlocking' | 'open' | 'error';

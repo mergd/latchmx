@@ -19,11 +19,20 @@ import {
 } from '@/lib/bmx-api';
 import { bmxConfig, hasBmxCredentials } from '@/lib/config';
 import { storageGet, storageRemove, storageSet } from '@/lib/storage';
-import type { AuthTokens, Door, SessionMode } from '@/lib/types';
-import { nextGroup, resolveGroup } from '@/lib/zones';
+import { DOOR_OPEN_MS, type AuthTokens, type Door, type SessionMode } from '@/lib/types';
+import {
+  emptyArrangement,
+  nextGroup,
+  parseArrangement,
+  placeDoor,
+  placeGroup,
+  resolveGroup,
+  type DoorArrangement,
+} from '@/lib/zones';
 
 const TOKEN_KEY = 'latch.tokens';
 const ZONE_KEY = 'latch.zones';
+const LAYOUT_KEY = 'latch.layout';
 
 type SessionContextValue = {
   mode: SessionMode;
@@ -38,6 +47,21 @@ type SessionContextValue = {
   refreshDoors: () => Promise<void>;
   zoneByDoorId: Record<string, string>;
   cycleDoorZone: (door: Door) => void;
+  openUntilByDoorId: Record<string, number>;
+  arrangement: DoorArrangement;
+  dropGroup: (
+    groupIds: string[],
+    draggedId: string,
+    beforeId: string | null,
+  ) => void;
+  dropDoor: (
+    door: Door,
+    fromGroupId: string,
+    toGroupId: string,
+    fromDoorIds: string[],
+    toDoorIds: string[],
+    beforeId: string | null,
+  ) => void;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -49,6 +73,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [buildingName, setBuildingName] = useState('');
   const [bootError, setBootError] = useState<string | null>(null);
   const [zoneByDoorId, setZoneByDoorId] = useState<Record<string, string>>(
+    {},
+  );
+  const [arrangement, setArrangement] = useState<DoorArrangement>(emptyArrangement);
+  const [openUntilByDoorId, setOpenUntilByDoorId] = useState<Record<string, number>>(
     {},
   );
 
@@ -79,8 +107,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const stored = await storageGet(TOKEN_KEY);
         const storedZones = await storageGet(ZONE_KEY);
+        const storedLayout = await storageGet(LAYOUT_KEY);
         if (!cancelled) {
           setZoneByDoorId(parseZones(storedZones));
+          setArrangement(parseArrangement(storedLayout));
         }
         let parsed = parseTokens(stored);
         if (cancelled) {
@@ -119,13 +149,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (tokens === null) {
         throw new Error('Sign in to unlock.');
       }
+      if (door.heldOpen || (openUntilByDoorId[door.id] ?? 0) > Date.now()) {
+        return;
+      }
       const fresh = await ensureFreshTokens(tokens);
       if (fresh.accessToken !== tokens.accessToken) {
         await persistTokens(fresh);
       }
       await releaseDoor(fresh.accessToken, door);
+      setOpenUntilByDoorId((current) => ({
+        ...current,
+        [door.id]: Date.now() + DOOR_OPEN_MS,
+      }));
     },
-    [persistTokens, tokens],
+    [openUntilByDoorId, persistTokens, tokens],
   );
 
   const signOut = useCallback(async () => {
@@ -141,7 +178,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     const url = authorizationUrl(bmxConfig.redirectUri);
     if (Platform.OS === 'web') {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       return;
     }
     await Linking.openURL(url);
@@ -163,16 +206,76 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [loadLiveDoors, persistTokens],
   );
 
+  const persistArrangement = useCallback((next: DoorArrangement) => {
+    setArrangement(next);
+    void storageSet(LAYOUT_KEY, JSON.stringify(next));
+  }, []);
+
   const cycleDoorZone = useCallback((door: Door) => {
     setZoneByDoorId((current) => {
+      const from = resolveGroup(door, current);
+      const to = nextGroup(door, from);
       const next = {
         ...current,
-        [door.id]: nextGroup(door, resolveGroup(door, current)),
+        [door.id]: to,
       };
       void storageSet(ZONE_KEY, JSON.stringify(next));
+      setArrangement((layout) => {
+        const without = {
+          ...layout.doorOrder,
+          [from]: (layout.doorOrder[from] ?? []).filter((id) => id !== door.id),
+        };
+        const updated: DoorArrangement = {
+          ...layout,
+          doorOrder: {
+            ...without,
+            [to]: [...(without[to] ?? []).filter((id) => id !== door.id), door.id],
+          },
+        };
+        void storageSet(LAYOUT_KEY, JSON.stringify(updated));
+        return updated;
+      });
       return next;
     });
   }, []);
+
+  const dropGroup = useCallback(
+    (groupIds: string[], draggedId: string, beforeId: string | null) => {
+      persistArrangement(placeGroup(arrangement, groupIds, draggedId, beforeId));
+    },
+    [arrangement, persistArrangement],
+  );
+
+  const dropDoor = useCallback(
+    (
+      door: Door,
+      fromGroupId: string,
+      toGroupId: string,
+      fromDoorIds: string[],
+      toDoorIds: string[],
+      beforeId: string | null,
+    ) => {
+      if (fromGroupId !== toGroupId) {
+        setZoneByDoorId((current) => {
+          const next = { ...current, [door.id]: toGroupId };
+          void storageSet(ZONE_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
+      persistArrangement(
+        placeDoor(
+          arrangement,
+          fromGroupId,
+          toGroupId,
+          fromDoorIds,
+          toDoorIds,
+          door.id,
+          beforeId,
+        ),
+      );
+    },
+    [arrangement, persistArrangement],
+  );
 
   const refreshDoors = useCallback(async () => {
     if (tokens === null || mode !== 'signed_in') {
@@ -195,6 +298,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refreshDoors,
       zoneByDoorId,
       cycleDoorZone,
+      openUntilByDoorId,
+      arrangement,
+      dropGroup,
+      dropDoor,
     }),
     [
       buildingName,
@@ -208,6 +315,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut,
       unlock,
       zoneByDoorId,
+      arrangement,
+      dropGroup,
+      dropDoor,
+      openUntilByDoorId,
     ],
   );
 

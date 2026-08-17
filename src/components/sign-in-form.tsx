@@ -7,6 +7,7 @@ import { color, type } from '@/lib/theme';
 export function SignInForm() {
   const { openSignIn, completeSignIn } = useSession();
   const [busy, setBusy] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
@@ -18,6 +19,7 @@ export function SignInForm() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not open sign-in.');
     } finally {
+      setAwaitingCode(true);
       setBusy(false);
     }
   };
@@ -36,9 +38,11 @@ export function SignInForm() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.lede}>
-        Sign in with ButterflyMX, then paste the one-time code they show.
-      </Text>
+      {awaitingCode ? (
+        <Text style={styles.lede}>
+          Paste the one-time code ButterflyMX shows, then connect.
+        </Text>
+      ) : null}
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
       <Pressable
         style={styles.primary}
@@ -51,24 +55,28 @@ export function SignInForm() {
           {busy ? 'Opening ButterflyMX' : 'Sign in'}
         </Text>
       </Pressable>
-      <TextInput
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="Authorization code"
-        placeholderTextColor={color.muted}
-        style={styles.input}
-        value={code}
-        onChangeText={setCode}
-      />
-      <Pressable
-        style={styles.secondary}
-        onPress={() => {
-          void onSubmitCode();
-        }}
-        disabled={busy}
-      >
-        <Text style={styles.secondaryLabel}>Connect</Text>
-      </Pressable>
+      {awaitingCode ? (
+        <>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Authorization code"
+            placeholderTextColor={color.muted}
+            style={styles.input}
+            value={code}
+            onChangeText={setCode}
+          />
+          <Pressable
+            style={styles.secondary}
+            onPress={() => {
+              void onSubmitCode();
+            }}
+            disabled={busy}
+          >
+            <Text style={styles.secondaryLabel}>Connect</Text>
+          </Pressable>
+        </>
+      ) : null}
     </View>
   );
 }

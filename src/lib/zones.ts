@@ -5,12 +5,23 @@ import {
   type BuildingConfig,
   type DoorGroupConfig,
 } from '@/config/buildings';
+import { insertBefore } from '@/lib/drag';
 import type { Door } from '@/lib/types';
 
 export type DoorGroup = {
   id: string;
   label: string;
   doors: Door[];
+};
+
+export type DoorArrangement = {
+  groupOrder: string[];
+  doorOrder: Record<string, string[]>;
+};
+
+export const emptyArrangement: DoorArrangement = {
+  groupOrder: [],
+  doorOrder: {},
 };
 
 export function layoutForDoor(door: Door): BuildingConfig | null {
@@ -33,14 +44,31 @@ export function groupLabel(door: Door, groupId: string): string {
   return group?.label ?? OTHER_GROUP_LABEL;
 }
 
+export function isHiddenDoor(door: Door): boolean {
+  const layout = layoutForDoor(door);
+  if (layout?.hide === undefined) {
+    return false;
+  }
+  const name = door.name.toLowerCase();
+  return layout.hide.some((item) => item.toLowerCase() === name);
+}
+
 export function inferGroup(door: Door): string {
   const layout = layoutForDoor(door);
   if (layout === null) {
     return OTHER_GROUP_ID;
   }
   const name = door.name.toLowerCase();
-  const matched = layout.groups.find((group) => matchesName(name, group));
-  return matched?.id ?? OTHER_GROUP_ID;
+  let bestId = OTHER_GROUP_ID;
+  let bestScore = 0;
+  for (const group of layout.groups) {
+    const score = matchScore(name, group);
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = group.id;
+    }
+  }
+  return bestId;
 }
 
 export function resolveGroup(
@@ -60,11 +88,13 @@ export function nextGroup(door: Door, current: string): string {
 export function groupDoors(
   doors: Door[],
   overrides: Record<string, string>,
+  arrangement: DoorArrangement = emptyArrangement,
 ): DoorGroup[] {
-  if (doors.length === 0) {
+  const visible = doors.filter((door) => !isHiddenDoor(door));
+  if (visible.length === 0) {
     return [];
   }
-  const sample = doors[0];
+  const sample = visible[0];
   const layout = sample ? layoutForDoor(sample) : null;
   const specs: { id: string; label: string }[] = [
     ...(layout?.groups.map((group) => ({ id: group.id, label: group.label })) ??
@@ -75,19 +105,110 @@ export function groupDoors(
   for (const spec of specs) {
     buckets.set(spec.id, []);
   }
-  for (const door of doors) {
+  for (const door of visible) {
     const id = resolveGroup(door, overrides);
     const list = buckets.get(id) ?? [];
     list.push(door);
     buckets.set(id, list);
   }
-  return specs
+  const filled = specs
     .map((spec) => ({
       id: spec.id,
       label: spec.label,
-      doors: buckets.get(spec.id) ?? [],
+      doors: sortDoors(buckets.get(spec.id) ?? [], arrangement.doorOrder[spec.id]),
     }))
     .filter((group) => group.doors.length > 0);
+  const order = mergeOrder(
+    arrangement.groupOrder,
+    filled.map((group) => group.id),
+  );
+  return order
+    .map((id) => filled.find((group) => group.id === id))
+    .filter((group): group is DoorGroup => group !== undefined);
+}
+
+export function placeGroup(
+  arrangement: DoorArrangement,
+  groupIds: string[],
+  draggedId: string,
+  beforeId: string | null,
+): DoorArrangement {
+  return {
+    ...arrangement,
+    groupOrder: insertBefore(
+      mergeOrder(arrangement.groupOrder, groupIds),
+      draggedId,
+      beforeId,
+    ),
+  };
+}
+
+export function placeDoor(
+  arrangement: DoorArrangement,
+  fromGroupId: string,
+  toGroupId: string,
+  fromDoorIds: string[],
+  toDoorIds: string[],
+  doorId: string,
+  beforeId: string | null,
+): DoorArrangement {
+  const fromOrder = mergeOrder(arrangement.doorOrder[fromGroupId] ?? [], fromDoorIds).filter(
+    (id) => id !== doorId,
+  );
+  const targetIds =
+    fromGroupId === toGroupId
+      ? mergeOrder(arrangement.doorOrder[toGroupId] ?? [], toDoorIds)
+      : mergeOrder(arrangement.doorOrder[toGroupId] ?? [], toDoorIds).filter(
+          (id) => id !== doorId,
+        );
+  return {
+    ...arrangement,
+    doorOrder: {
+      ...arrangement.doorOrder,
+      [fromGroupId]: fromGroupId === toGroupId ? insertBefore(targetIds, doorId, beforeId) : fromOrder,
+      ...(fromGroupId === toGroupId
+        ? {}
+        : {
+            [toGroupId]: insertBefore(targetIds, doorId, beforeId),
+          }),
+    },
+  };
+}
+
+export function parseArrangement(raw: string | null): DoorArrangement {
+  if (raw === null) {
+    return emptyArrangement;
+  }
+  const parsed = JSON.parse(raw) as Partial<DoorArrangement>;
+  const groupOrder = Array.isArray(parsed.groupOrder)
+    ? parsed.groupOrder.filter((id): id is string => typeof id === 'string')
+    : [];
+  const doorOrder: Record<string, string[]> = {};
+  if (parsed.doorOrder !== undefined && typeof parsed.doorOrder === 'object') {
+    for (const [groupId, ids] of Object.entries(parsed.doorOrder)) {
+      if (Array.isArray(ids)) {
+        doorOrder[groupId] = ids.filter((id): id is string => typeof id === 'string');
+      }
+    }
+  }
+  return { groupOrder, doorOrder };
+}
+
+function sortDoors(doors: Door[], preferred: string[] | undefined): Door[] {
+  const order = mergeOrder(
+    preferred ?? [],
+    doors.map((door) => door.id),
+  );
+  return order
+    .map((id) => doors.find((door) => door.id === id))
+    .filter((door): door is Door => door !== undefined);
+}
+
+function mergeOrder(preferred: string[], available: string[]): string[] {
+  const present = new Set(available);
+  const head = preferred.filter((id) => present.has(id));
+  const seen = new Set(head);
+  return [...head, ...available.filter((id) => !seen.has(id))];
 }
 
 function matchesBuilding(building: BuildingConfig, door: Door): boolean {
@@ -102,8 +223,13 @@ function matchesBuilding(building: BuildingConfig, door: Door): boolean {
   );
 }
 
-function matchesName(doorName: string, group: DoorGroupConfig): boolean {
-  return group.match.some((fragment) =>
-    doorName.includes(fragment.toLowerCase()),
-  );
+function matchScore(doorName: string, group: DoorGroupConfig): number {
+  let best = 0;
+  for (const fragment of group.match) {
+    const needle = fragment.toLowerCase();
+    if (needle.length > best && doorName.includes(needle)) {
+      best = needle.length;
+    }
+  }
+  return best;
 }

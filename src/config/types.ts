@@ -10,6 +10,7 @@ export type BuildingConfig = {
     buildingIds?: number[];
     nameIncludes?: string[];
   };
+  hide?: string[];
   groups: DoorGroupConfig[];
 };
 
