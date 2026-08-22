@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react-native';
-import { useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -13,22 +13,27 @@ import { color, type } from '@/lib/theme';
 type DoorAccordionProps = {
   title: string;
   count: number;
-  defaultOpen?: boolean;
+  open: boolean;
   arranging?: boolean;
   ink?: string;
+  onToggle: () => void;
   children: ReactNode;
 };
 
 export function DoorAccordion({
   title,
   count,
-  defaultOpen = false,
+  open,
   arranging = false,
   ink = color.accent,
+  onToggle,
   children,
 }: DoorAccordionProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const progress = useSharedValue(defaultOpen ? 1 : 0);
+  const progress = useSharedValue(open ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(open ? 1 : 0, { duration: 180 });
+  }, [open, progress]);
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${progress.value * 180}deg` }],
@@ -38,14 +43,7 @@ export function DoorAccordion({
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
         <ArrangeHandle enabled={arranging} />
-        <Pressable
-          style={styles.header}
-          onPress={() => {
-            const next = !open;
-            setOpen(next);
-            progress.value = withTiming(next ? 1 : 0, { duration: 180 });
-          }}
-        >
+        <Pressable style={styles.header} onPress={onToggle}>
           <Text style={[styles.title, { color: ink }]}>{title}</Text>
           <View style={styles.meta}>
             <Text style={styles.count}>{count}</Text>

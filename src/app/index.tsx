@@ -14,6 +14,7 @@ import Sortable from 'react-native-sortables';
 
 import { AppShell } from '@/components/app-shell';
 import { BuildingHero } from '@/components/building-hero';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DoorList } from '@/components/door-list';
 import { IconButton } from '@/components/icon-button';
 import { SignInForm } from '@/components/sign-in-form';
@@ -22,6 +23,7 @@ import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/
 import { useSession } from '@/lib/session';
 import { color, groupInk, type } from '@/lib/theme';
 import {
+  differsFromBaseLayout,
   groupDoors,
   hasCustomLayout,
   layoutForDoors,
@@ -48,6 +50,7 @@ export default function BuildingScreen() {
     resetLayout,
   } = useSession();
   const [arranging, setArranging] = useState(false);
+  const [pendingReset, setPendingReset] = useState(false);
   const [section, setSection] = useState('');
   const [chromePinned, setChromePinned] = useState(false);
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
@@ -68,6 +71,12 @@ export default function BuildingScreen() {
   );
   const layout = layoutForDoors(doors);
   const mapped = hasCustomLayout(doors);
+  const canReset = differsFromBaseLayout(
+    doors,
+    zoneByDoorId,
+    arrangement,
+    hiddenByDoorId,
+  );
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
   const signedOut = mode === 'signed_out';
   const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
@@ -83,13 +92,13 @@ export default function BuildingScreen() {
     const items = groups.map((group, index) => ({
       id: group.id,
       label: group.label,
-      ink: groupInk(group.id, index),
+      ink: groupInk(index),
     }));
     if (hidden.length > 0) {
       items.push({
         id: HIDDEN_GROUP_ID,
         label: HIDDEN_GROUP_LABEL,
-        ink: groupInk('hidden'),
+        ink: groupInk(groups.length),
       });
     }
     return items;
@@ -176,10 +185,13 @@ export default function BuildingScreen() {
                     </Text>
                     <BuildingActions
                       arranging={arranging}
+                      canReset={canReset}
                       onToggleArrange={() => {
                         setArranging((current) => !current);
                       }}
-                      onReset={resetLayout}
+                      onReset={() => {
+                        setPendingReset(true);
+                      }}
                     />
                   </View>
                   {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
@@ -218,12 +230,28 @@ export default function BuildingScreen() {
               actions={
                 <BuildingActions
                   arranging={arranging}
+                  canReset={canReset}
                   onToggleArrange={() => {
                     setArranging((current) => !current);
                   }}
-                  onReset={resetLayout}
+                  onReset={() => {
+                    setPendingReset(true);
+                  }}
                 />
               }
+            />
+            <ConfirmDialog
+              visible={pendingReset}
+              title="Reset this layout?"
+              body="Doors go back to the building’s default order, and anything you hid comes back."
+              confirmLabel="Reset"
+              onCancel={() => {
+                setPendingReset(false);
+              }}
+              onConfirm={() => {
+                resetLayout();
+                setPendingReset(false);
+              }}
             />
           </View>
         </Sortable.PortalProvider>
@@ -234,16 +262,18 @@ export default function BuildingScreen() {
 
 function BuildingActions({
   arranging,
+  canReset,
   onToggleArrange,
   onReset,
 }: {
   arranging: boolean;
+  canReset: boolean;
   onToggleArrange: () => void;
   onReset: () => void;
 }) {
   return (
     <View style={styles.toolbar}>
-      {arranging ? (
+      {arranging && canReset ? (
         <IconButton icon={RotateCcw} label="Reset order" onPress={onReset} />
       ) : null}
       <IconButton

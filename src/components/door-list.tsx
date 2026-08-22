@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DoorAccordion } from '@/components/door-accordion';
 import { DoorRow } from '@/components/door-button';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL } from '@/config/buildings';
-import { groupInk, muteInk } from '@/lib/theme';
+import { doorInk, groupInk } from '@/lib/theme';
 import type { Door } from '@/lib/types';
 import type { DoorGroup } from '@/lib/zones';
 
@@ -40,10 +40,23 @@ export function DoorList({
   reorderDoors,
 }: DoorListProps) {
   const [pendingHide, setPendingHide] = useState<Door | null>(null);
-  const hiddenInk = muteInk(groupInk('hidden'));
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   const requestHide = useCallback((door: Door) => {
     setPendingHide(door);
+  }, []);
+
+  const knownIds = groups.map((group) => group.id);
+  if (hidden.length > 0) {
+    knownIds.push(HIDDEN_GROUP_ID);
+  }
+  const openId =
+    openGroupId !== null && knownIds.includes(openGroupId)
+      ? openGroupId
+      : (groups[0]?.id ?? null);
+
+  const toggleGroup = useCallback((id: string) => {
+    setOpenGroupId(id);
   }, []);
 
   const renderGroup = useCallback<SortableGridRenderItem<DoorGroup>>(
@@ -52,11 +65,15 @@ export function DoorList({
         group={group}
         index={index}
         arranging={arranging}
+        open={openId === group.id}
         scrollableRef={scrollableRef}
         openUntilByDoorId={openUntilByDoorId}
         onUnlock={onUnlock}
         onHide={requestHide}
         onLayout={onGroupLayout}
+        onToggle={() => {
+          toggleGroup(group.id);
+        }}
         reorderDoors={reorderDoors}
       />
     ),
@@ -64,10 +81,12 @@ export function DoorList({
       arranging,
       onGroupLayout,
       onUnlock,
+      openId,
       openUntilByDoorId,
       reorderDoors,
       requestHide,
       scrollableRef,
+      toggleGroup,
     ],
   );
 
@@ -82,8 +101,11 @@ export function DoorList({
         <DoorAccordion
           title={HIDDEN_GROUP_LABEL}
           count={hidden.length}
-          defaultOpen={arranging}
-          ink={groupInk('hidden')}
+          open={openId === HIDDEN_GROUP_ID}
+          ink={groupInk(groups.length)}
+          onToggle={() => {
+            toggleGroup(HIDDEN_GROUP_ID);
+          }}
         >
           {hidden.map((door, doorIndex) => (
             <DoorRow
@@ -92,7 +114,7 @@ export function DoorList({
               arranging={false}
               last={doorIndex === hidden.length - 1}
               openUntil={null}
-              ink={hiddenInk}
+              ink={doorInk(groups.length, doorIndex)}
               onUnlock={onUnlock}
               onReveal={onReveal}
             />
@@ -129,11 +151,15 @@ export function DoorList({
             group={group}
             index={index}
             arranging={false}
+            open={openId === group.id}
             scrollableRef={scrollableRef}
             openUntilByDoorId={openUntilByDoorId}
             onUnlock={onUnlock}
             onHide={requestHide}
             onLayout={onGroupLayout}
+            onToggle={() => {
+              toggleGroup(group.id);
+            }}
             reorderDoors={reorderDoors}
           />
         ))
@@ -162,11 +188,13 @@ type GroupBlockProps = {
   group: DoorGroup;
   index: number;
   arranging: boolean;
+  open: boolean;
   scrollableRef: AnimatedRef<Animated.ScrollView>;
   openUntilByDoorId: Record<string, number>;
   onUnlock: (door: Door) => Promise<void>;
   onHide: (door: Door) => void;
   onLayout: (id: string, y: number) => void;
+  onToggle: () => void;
   reorderDoors: (groupId: string, ids: string[]) => void;
 };
 
@@ -174,15 +202,16 @@ function GroupBlock({
   group,
   index,
   arranging,
+  open,
   scrollableRef,
   openUntilByDoorId,
   onUnlock,
   onHide,
   onLayout,
+  onToggle,
   reorderDoors,
 }: GroupBlockProps) {
-  const ink = groupInk(group.id, index);
-  const optionInk = muteInk(ink);
+  const ink = groupInk(index);
 
   const renderDoor = useCallback<SortableGridRenderItem<Door>>(
     ({ item: door, index: doorIndex }) => (
@@ -191,12 +220,12 @@ function GroupBlock({
         arranging={arranging}
         last={doorIndex === group.doors.length - 1}
         openUntil={openUntilByDoorId[door.id] ?? null}
-        ink={optionInk}
+        ink={doorInk(index, doorIndex)}
         onUnlock={onUnlock}
         onHide={onHide}
       />
     ),
-    [arranging, group.doors.length, onHide, onUnlock, openUntilByDoorId, optionInk],
+    [arranging, group.doors.length, index, onHide, onUnlock, openUntilByDoorId],
   );
 
   return (
@@ -209,9 +238,10 @@ function GroupBlock({
       <DoorAccordion
         title={group.label}
         count={group.doors.length}
-        defaultOpen={index === 0}
+        open={open}
         arranging={arranging}
         ink={ink}
+        onToggle={onToggle}
       >
         {arranging ? (
           <Sortable.Grid
@@ -243,7 +273,7 @@ function GroupBlock({
               arranging={false}
               last={doorIndex === group.doors.length - 1}
               openUntil={openUntilByDoorId[door.id] ?? null}
-              ink={optionInk}
+              ink={doorInk(index, doorIndex)}
               onUnlock={onUnlock}
               onHide={onHide}
             />

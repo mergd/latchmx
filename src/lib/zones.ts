@@ -40,6 +40,35 @@ export function layoutForDoor(door: Door): BuildingConfig {
   );
 }
 
+export function differsFromBaseLayout(
+  doors: Door[],
+  zoneByDoorId: Record<string, string>,
+  arrangement: DoorArrangement,
+  hiddenByDoorId: Record<string, boolean>,
+): boolean {
+  if (userHiddenDoors(doors, hiddenByDoorId).length > 0) {
+    return true;
+  }
+  const current = groupDoors(doors, zoneByDoorId, arrangement, hiddenByDoorId);
+  const base = groupDoors(doors, {}, emptyArrangement, {});
+  if (current.length !== base.length) {
+    return true;
+  }
+  return current.some((group, index) => {
+    const other = base[index];
+    if (
+      other === undefined ||
+      group.id !== other.id ||
+      group.doors.length !== other.doors.length
+    ) {
+      return true;
+    }
+    return group.doors.some(
+      (door, doorIndex) => door.id !== other.doors[doorIndex]?.id,
+    );
+  });
+}
+
 export function hasCustomLayout(doors: Door[]): boolean {
   if (!Array.isArray(doors)) {
     return false;

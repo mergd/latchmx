@@ -321,7 +321,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const resetLayout = useCallback(() => {
     persistArrangement(emptyArrangement);
     setZoneByDoorId({});
+    setHiddenByDoorId({});
     void storageSet(ZONE_KEY, JSON.stringify({}));
+    void storageSet(HIDDEN_KEY, JSON.stringify({}));
   }, [persistArrangement]);
 
   const dropDoor = useCallback(

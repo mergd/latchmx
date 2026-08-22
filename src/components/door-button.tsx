@@ -160,9 +160,10 @@ function labelFor(name: string, status: UnlockStatus, isOpen: boolean): string {
 const styles = StyleSheet.create({
   row: {
     width: '100%',
-    minHeight: 52,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.line,
     cursor: 'pointer',
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 16,
     lineHeight: 24,
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingRight: 0,
   },
   rowHidden: {
