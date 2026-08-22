@@ -8,10 +8,14 @@ const config: ExpoConfig = {
   icon: './assets/images/icon.png',
   scheme: 'latch',
   userInterfaceStyle: 'dark',
+  owner: 'williamexpo',
   ios: {
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'dev.william.latch',
@@ -44,6 +48,9 @@ const config: ExpoConfig = {
     reactCompiler: true,
   },
   extra: {
+    eas: {
+      projectId: '5ff7bf4f-a83d-4d59-8a95-adc95bdf8c1b',
+    },
     bmxEnv: process.env.BMX_ENV ?? 'production',
     bmxClientId: process.env.BMX_CLIENT_ID ?? '',
     bmxClientSecret: process.env.BMX_CLIENT_SECRET ?? '',
