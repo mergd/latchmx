@@ -11,7 +11,7 @@ import {
   bmxAccountsBaseUrl,
   bmxConfig,
 } from '@/lib/config';
-import type { AuthTokens, Door } from '@/lib/types';
+import type { Account, AuthTokens, Door } from '@/lib/types';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -97,7 +97,10 @@ export function authorizationUrl(redirectUri: string): string {
   return `${bmxAccountsBaseUrl()}/oauth/authorize?${params.toString()}`;
 }
 
-export async function fetchDoors(accessToken: string): Promise<Door[]> {
+export async function fetchDoors(accessToken: string): Promise<{
+  doors: Door[];
+  account: Account | null;
+}> {
   const client = createBmxClient(accessToken);
   try {
     const [tenants, buildings, extraPointsRaw, extraDevicesRaw] = await Promise.all([
@@ -108,6 +111,7 @@ export async function fetchDoors(accessToken: string): Promise<Door[]> {
     ]);
     const extraPoints = extraPointsRaw;
     const extraDevices = extraDevicesRaw;
+    const account = accountFromTenants(tenants);
 
     const buildingNames = new Map<number, string>();
     for (const tenant of tenants) {
@@ -184,7 +188,10 @@ export async function fetchDoors(accessToken: string): Promise<Door[]> {
       }),
     );
 
-    return doorGroups.flat().sort((left, right) => left.name.localeCompare(right.name));
+    return {
+      doors: doorGroups.flat().sort((left, right) => left.name.localeCompare(right.name)),
+      account,
+    };
   } catch (error) {
     throw mapBmxError(error, 'Could not load doors.');
   }
@@ -292,6 +299,28 @@ function isOpenRecord(record: JsonRecord): boolean {
 
 function flagTrue(value: unknown): boolean {
   return value === true || value === 1 || value === 'true';
+}
+
+function accountFromTenants(tenants: ButterflyMxTenant[]): Account | null {
+  const tenant =
+    tenants.find((item) => typeof item.email === 'string' && item.email.length > 0) ??
+    tenants[0];
+  if (tenant === undefined) {
+    return null;
+  }
+  const nameParts = [tenant.first_name, tenant.last_name].filter(
+    (part): part is string => typeof part === 'string' && part.trim().length > 0,
+  );
+  const fullName =
+    typeof tenant.full_name === 'string' ? tenant.full_name.trim() : '';
+  const name =
+    nameParts.join(' ') || (fullName.length > 0 ? fullName : null);
+  const email =
+    typeof tenant.email === 'string' && tenant.email.length > 0 ? tenant.email : null;
+  if (name === null && email === null) {
+    return null;
+  }
+  return { name, email };
 }
 
 function tenantBuildingName(tenant: ButterflyMxTenant): string | null {

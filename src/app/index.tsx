@@ -1,20 +1,32 @@
 import { Image } from 'expo-image';
-import { Link } from 'expo-router';
-import { ListOrdered, Settings2 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { List, RotateCcw, Settings } from 'lucide-react-native';
+import { useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import Sortable from 'react-native-sortables';
 
 import { AppShell } from '@/components/app-shell';
-import { DoorAccordion } from '@/components/door-accordion';
-import { DoorButton } from '@/components/door-button';
+import { BuildingHero } from '@/components/building-hero';
+import { DoorList } from '@/components/door-list';
+import { IconButton } from '@/components/icon-button';
 import { SignInForm } from '@/components/sign-in-form';
-import { StatusPill } from '@/components/status-pill';
-import type { DragPayload } from '@/lib/drag';
-import { neighborBefore } from '@/lib/drag';
+import { StickyBuildingHeader } from '@/components/sticky-building-header';
+import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
 import { useSession } from '@/lib/session';
-import { color, type } from '@/lib/theme';
-import type { Door } from '@/lib/types';
-import { groupDoors } from '@/lib/zones';
+import { color, groupInk, type } from '@/lib/theme';
+import {
+  groupDoors,
+  hasCustomLayout,
+  layoutForDoors,
+  userHiddenDoors,
+} from '@/lib/zones';
 
 import loginVisual from '../../assets/brand/login-visual.png';
 
@@ -27,18 +39,93 @@ export default function BuildingScreen() {
     bootError,
     zoneByDoorId,
     arrangement,
-    dropGroup,
-    dropDoor,
+    reorderGroups,
+    reorderDoors,
     openUntilByDoorId,
+    hiddenByDoorId,
+    hideDoor,
+    showDoor,
+    resetLayout,
   } = useSession();
   const [arranging, setArranging] = useState(false);
+  const [section, setSection] = useState('');
+  const [chromePinned, setChromePinned] = useState(false);
+  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollY = useSharedValue(0);
+  const heroH = useSharedValue(200);
+  const heroHRef = useRef(200);
+  const listYRef = useRef(0);
+  const sectionYRef = useRef<Record<string, number>>({});
+  const sectionRef = useRef('');
+  const pinnedRef = useRef(false);
   const groups = useMemo(
-    () => groupDoors(doors, zoneByDoorId, arrangement),
-    [arrangement, doors, zoneByDoorId],
+    () => groupDoors(doors, zoneByDoorId, arrangement, hiddenByDoorId),
+    [arrangement, doors, hiddenByDoorId, zoneByDoorId],
   );
-  const groupIds = groups.map((group) => group.id);
+  const hidden = useMemo(
+    () => userHiddenDoors(doors, hiddenByDoorId),
+    [doors, hiddenByDoorId],
+  );
+  const layout = layoutForDoors(doors);
+  const mapped = hasCustomLayout(doors);
+  const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
   const signedOut = mode === 'signed_out';
-  const title = buildingName.length > 0 ? buildingName : 'Latch';
+  const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
+  const buildingId = doors[0]?.buildingId;
+  const kicker = arranging
+    ? 'Drag a grip to reorder'
+    : mapped
+      ? (layout.address ?? '')
+      : buildingId === undefined
+        ? 'Not in Latch yet — add a layout to customize this.'
+        : `Not in Latch yet — add a layout (${buildingId}) to customize this.`;
+  const pinTargets = useMemo(() => {
+    const items = groups.map((group, index) => ({
+      id: group.id,
+      label: group.label,
+      ink: groupInk(group.id, index),
+    }));
+    if (hidden.length > 0) {
+      items.push({
+        id: HIDDEN_GROUP_ID,
+        label: HIDDEN_GROUP_LABEL,
+        ink: groupInk('hidden'),
+      });
+    }
+    return items;
+  }, [groups, hidden.length]);
+  const pinnedTarget =
+    pinTargets.find((item) => item.label === section) ?? pinTargets[0];
+  const pinnedSection = pinnedTarget?.label ?? '';
+  const pinnedInk = pinnedTarget?.ink ?? color.accent;
+  const stickyStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollY.value,
+      [heroH.value - 84, heroH.value - 32],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const syncPinnedSection = (y: number) => {
+    const pin = y + 76;
+    let next = pinTargets[0]?.label ?? '';
+    for (const group of pinTargets) {
+      const top = listYRef.current + (sectionYRef.current[group.id] ?? 0);
+      if (top <= pin) {
+        next = group.label;
+      }
+    }
+    if (next !== sectionRef.current) {
+      sectionRef.current = next;
+      setSection(next);
+    }
+    const pinned = y > heroHRef.current - 48;
+    if (pinned !== pinnedRef.current) {
+      pinnedRef.current = pinned;
+      setChromePinned(pinned);
+    }
+  };
 
   return (
     <AppShell
@@ -53,257 +140,194 @@ export default function BuildingScreen() {
         ) : null
       }
     >
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          {signedOut ? (
-            <View style={styles.title} />
-          ) : (
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
-          )}
-          {signedOut ? null : (
-            <Pressable
-              style={StyleSheet.flatten([
-                styles.gear,
-                arranging ? styles.gearOn : null,
-              ])}
-              onPress={() => {
-                setArranging((current) => !current);
-              }}
-              hitSlop={12}
-            >
-              <ListOrdered
-                color={arranging ? color.accent : color.muted}
-                size={18}
-                strokeWidth={1.75}
-              />
-            </Pressable>
-          )}
-          <Link href="/settings" asChild>
-            <Pressable
-              style={StyleSheet.flatten([styles.gear, signedOut ? styles.gearOnVisual : null])}
-              hitSlop={12}
-            >
-              <Settings2 color={signedOut ? color.text : color.muted} size={18} strokeWidth={1.75} />
-            </Pressable>
-          </Link>
+      {signedOut ? (
+        <View style={styles.loginDock}>
+          {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
+          <SignInForm />
         </View>
-        {signedOut ? null : (
-          <View style={styles.statusRow}>
-            <StatusPill mode={mode} />
-            {arranging ? (
-              <Text style={styles.hint}>
-                Drag the grip to reorder. Drop a door on another section to move it.
-              </Text>
-            ) : null}
-          </View>
-        )}
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      >
-        {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
-        {signedOut ? (
-          <View style={styles.loginDock}>
-            <SignInForm />
-          </View>
-        ) : null}
-        {groups.map((group, index) => {
-          const doorIds = group.doors.map((door) => door.id);
-          return (
-            <DoorAccordion
-              key={group.id}
-              groupId={group.id}
-              title={group.label}
-              count={group.doors.length}
-              defaultOpen={index === 0}
-              arranging={arranging}
-              onDrop={(payload) => {
-                handleGroupDrop(payload, group.id, groupIds, doorIds, dropGroup, dropDoor, groups);
-              }}
-              onNativeShift={(dir) => {
-                const beforeId = neighborBefore(groupIds, group.id, dir);
-                if (beforeId === undefined) {
-                  return;
-                }
-                dropGroup(groupIds, group.id, beforeId);
+      ) : (
+        <Sortable.PortalProvider enabled={arranging}>
+          <View style={styles.screen}>
+            <Animated.ScrollView
+              ref={scrollableRef}
+              style={styles.scroller}
+              contentContainerStyle={styles.scrollerContent}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={(event) => {
+                const y = event.nativeEvent.contentOffset.y;
+                scrollY.value = y;
+                syncPinnedSection(y);
               }}
             >
-              {group.doors.map((door) => (
-                <DoorButton
-                  key={door.id}
-                  door={door}
-                  groupId={group.id}
+              <View
+                style={[styles.heroBlock, heroUri ? styles.heroBlockTall : null]}
+                onLayout={(event) => {
+                  const height = event.nativeEvent.layout.height;
+                  heroH.value = height;
+                  heroHRef.current = height;
+                }}
+              >
+                <BuildingHero uri={heroUri} />
+                <View style={styles.identity}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.title} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    <BuildingActions
+                      arranging={arranging}
+                      onToggleArrange={() => {
+                        setArranging((current) => !current);
+                      }}
+                      onReset={resetLayout}
+                    />
+                  </View>
+                  {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
+                  {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
+                </View>
+              </View>
+              <View
+                style={styles.listMeasure}
+                onLayout={(event) => {
+                  listYRef.current = event.nativeEvent.layout.y;
+                }}
+              >
+                <DoorList
+                  groups={groups}
+                  hidden={hidden}
                   arranging={arranging}
+                  scrollableRef={scrollableRef}
+                  openUntilByDoorId={openUntilByDoorId}
                   onUnlock={unlock}
-                  openUntil={openUntilByDoorId[door.id] ?? null}
-                  onDrop={(payload) => {
-                    handleDoorDrop(payload, door.id, group.id, doorIds, dropDoor, groups);
+                  onHide={hideDoor}
+                  onReveal={showDoor}
+                  onGroupLayout={(id, y) => {
+                    sectionYRef.current[id] = y;
                   }}
-                  onNativeShift={(dir) => {
-                    const beforeId = neighborBefore(doorIds, door.id, dir);
-                    if (beforeId === undefined) {
-                      return;
-                    }
-                    dropDoor(door, group.id, group.id, doorIds, doorIds, beforeId);
-                  }}
+                  reorderGroups={reorderGroups}
+                  reorderDoors={reorderDoors}
                 />
-              ))}
-            </DoorAccordion>
-          );
-        })}
-      </ScrollView>
+              </View>
+            </Animated.ScrollView>
+            <StickyBuildingHeader
+              title={title}
+              section={pinnedSection}
+              sectionInk={pinnedInk}
+              style={stickyStyle}
+              interactive={chromePinned}
+              actions={
+                <BuildingActions
+                  arranging={arranging}
+                  onToggleArrange={() => {
+                    setArranging((current) => !current);
+                  }}
+                  onReset={resetLayout}
+                />
+              }
+            />
+          </View>
+        </Sortable.PortalProvider>
+      )}
     </AppShell>
   );
 }
 
-function handleGroupDrop(
-  payload: DragPayload,
-  targetGroupId: string,
-  groupIds: string[],
-  targetDoorIds: string[],
-  dropGroup: (groupIds: string[], draggedId: string, beforeId: string | null) => void,
-  dropDoor: (
-    door: Door,
-    fromGroupId: string,
-    toGroupId: string,
-    fromDoorIds: string[],
-    toDoorIds: string[],
-    beforeId: string | null,
-  ) => void,
-  groups: { id: string; doors: Door[] }[],
-): void {
-  switch (payload.kind) {
-    case 'group':
-      if (payload.id === targetGroupId) {
-        return;
-      }
-      dropGroup(groupIds, payload.id, targetGroupId);
-      return;
-    case 'door': {
-      const door = groups
-        .flatMap((group) => group.doors)
-        .find((item) => item.id === payload.id);
-      if (door === undefined) {
-        return;
-      }
-      const fromIds =
-        groups.find((group) => group.id === payload.groupId)?.doors.map((item) => item.id) ?? [];
-      dropDoor(door, payload.groupId, targetGroupId, fromIds, targetDoorIds, null);
-      return;
-    }
-    default: {
-      const _never: never = payload;
-      return _never;
-    }
-  }
-}
-
-function handleDoorDrop(
-  payload: DragPayload,
-  targetDoorId: string,
-  targetGroupId: string,
-  targetDoorIds: string[],
-  dropDoor: (
-    door: Door,
-    fromGroupId: string,
-    toGroupId: string,
-    fromDoorIds: string[],
-    toDoorIds: string[],
-    beforeId: string | null,
-  ) => void,
-  groups: { id: string; doors: Door[] }[],
-): void {
-  switch (payload.kind) {
-    case 'group':
-      return;
-    case 'door': {
-      if (payload.id === targetDoorId) {
-        return;
-      }
-      const door = groups
-        .flatMap((group) => group.doors)
-        .find((item) => item.id === payload.id);
-      if (door === undefined) {
-        return;
-      }
-      const fromIds =
-        groups.find((group) => group.id === payload.groupId)?.doors.map((item) => item.id) ?? [];
-      dropDoor(door, payload.groupId, targetGroupId, fromIds, targetDoorIds, targetDoorId);
-      return;
-    }
-    default: {
-      const _never: never = payload;
-      return _never;
-    }
-  }
+function BuildingActions({
+  arranging,
+  onToggleArrange,
+  onReset,
+}: {
+  arranging: boolean;
+  onToggleArrange: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <View style={styles.toolbar}>
+      {arranging ? (
+        <IconButton icon={RotateCcw} label="Reset order" onPress={onReset} />
+      ) : null}
+      <IconButton
+        icon={List}
+        label={arranging ? 'Done arranging' : 'Arrange doors'}
+        active={arranging}
+        onPress={onToggleArrange}
+      />
+      <IconButton
+        icon={Settings}
+        label="Settings"
+        onPress={() => {
+          router.push('/settings');
+        }}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   loginVisual: {
     ...StyleSheet.absoluteFillObject,
   },
-  header: {
+  loginDock: {
+    marginTop: 'auto',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: color.overlay,
+  },
+  screen: {
+    flex: 1,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    gap: 8,
+    flexShrink: 0,
+  },
+  heroBlock: {
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  heroBlockTall: {
+    height: 200,
+  },
+  identity: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 12,
-    gap: 6,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    minHeight: 40,
   },
   title: {
     flex: 1,
     color: color.text,
     fontFamily: type.title,
-    fontSize: 26,
-    lineHeight: 30,
+    fontSize: 34,
+    lineHeight: 38,
   },
-  gear: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: color.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gearOn: {
-    borderWidth: 1,
-    borderColor: color.accent,
-  },
-  gearOnVisual: {
-    backgroundColor: color.overlaySoft,
-  },
-  statusRow: {
-    gap: 6,
-  },
-  hint: {
+  kicker: {
+    marginTop: 6,
     color: color.muted,
     fontFamily: type.body,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  list: {
-    flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 28,
-    gap: 18,
-  },
-  loginDock: {
-    marginTop: 'auto',
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: color.overlay,
+    fontSize: 14,
+    minHeight: 20,
   },
   error: {
+    marginTop: 8,
     color: color.bad,
     fontFamily: type.body,
     fontSize: 14,
-    lineHeight: 20,
+  },
+  scroller: {
+    flex: 1,
+  },
+  scrollerContent: {
+    paddingBottom: 40,
+  },
+  listMeasure: {
+    width: '100%',
   },
 });

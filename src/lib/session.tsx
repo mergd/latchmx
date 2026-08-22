@@ -19,7 +19,13 @@ import {
 } from '@/lib/bmx-api';
 import { bmxConfig, hasBmxCredentials } from '@/lib/config';
 import { storageGet, storageRemove, storageSet } from '@/lib/storage';
-import { DOOR_OPEN_MS, type AuthTokens, type Door, type SessionMode } from '@/lib/types';
+import {
+  DOOR_OPEN_MS,
+  type Account,
+  type AuthTokens,
+  type Door,
+  type SessionMode,
+} from '@/lib/types';
 import {
   emptyArrangement,
   nextGroup,
@@ -33,9 +39,11 @@ import {
 const TOKEN_KEY = 'latch.tokens';
 const ZONE_KEY = 'latch.zones';
 const LAYOUT_KEY = 'latch.layout';
+const HIDDEN_KEY = 'latch.hidden';
 
 type SessionContextValue = {
   mode: SessionMode;
+  account: Account | null;
   doors: Door[];
   buildingName: string;
   canSignIn: boolean;
@@ -49,6 +57,8 @@ type SessionContextValue = {
   cycleDoorZone: (door: Door) => void;
   openUntilByDoorId: Record<string, number>;
   arrangement: DoorArrangement;
+  reorderGroups: (groupIds: string[]) => void;
+  reorderDoors: (groupId: string, doorIds: string[]) => void;
   dropGroup: (
     groupIds: string[],
     draggedId: string,
@@ -62,6 +72,11 @@ type SessionContextValue = {
     toDoorIds: string[],
     beforeId: string | null,
   ) => void;
+  hiddenByDoorId: Record<string, boolean>;
+  hideDoor: (door: Door) => void;
+  showDoor: (door: Door) => void;
+  hideDoors: (doors: Door[]) => void;
+  resetLayout: () => void;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -69,6 +84,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<SessionMode>('loading');
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
   const [doors, setDoors] = useState<Door[]>([]);
   const [buildingName, setBuildingName] = useState('');
   const [bootError, setBootError] = useState<string | null>(null);
@@ -76,6 +92,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     {},
   );
   const [arrangement, setArrangement] = useState<DoorArrangement>(emptyArrangement);
+  const [hiddenByDoorId, setHiddenByDoorId] = useState<Record<string, boolean>>(
+    {},
+  );
   const [openUntilByDoorId, setOpenUntilByDoorId] = useState<Record<string, number>>(
     {},
   );
@@ -94,9 +113,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (fresh.accessToken !== current.accessToken) {
       await persistTokens(fresh);
     }
-    const nextDoors = await fetchDoors(fresh.accessToken);
-    setDoors(nextDoors);
-    setBuildingName(nextDoors[0]?.buildingName ?? 'Your building');
+    const snapshot = unpackLiveBuilding(await fetchDoors(fresh.accessToken));
+    setDoors(snapshot.doors);
+    setAccount(snapshot.account);
+    setBuildingName(snapshot.doors[0]?.buildingName ?? 'Your building');
     setMode('signed_in');
   }, [persistTokens]);
 
@@ -108,9 +128,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const stored = await storageGet(TOKEN_KEY);
         const storedZones = await storageGet(ZONE_KEY);
         const storedLayout = await storageGet(LAYOUT_KEY);
+        const storedHidden = await storageGet(HIDDEN_KEY);
         if (!cancelled) {
           setZoneByDoorId(parseZones(storedZones));
           setArrangement(parseArrangement(storedLayout));
+          setHiddenByDoorId(parseHidden(storedHidden));
         }
         let parsed = parseTokens(stored);
         if (cancelled) {
@@ -126,6 +148,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (!cancelled) {
           setTokens(null);
+          setAccount(null);
           setDoors([]);
           setBuildingName('');
           setMode('signed_out');
@@ -167,6 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await persistTokens(null);
+    setAccount(null);
     setDoors([]);
     setBuildingName('');
     setMode('signed_out');
@@ -239,12 +263,66 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const reorderGroups = useCallback(
+    (groupIds: string[]) => {
+      persistArrangement({ ...arrangement, groupOrder: groupIds });
+    },
+    [arrangement, persistArrangement],
+  );
+
+  const reorderDoors = useCallback(
+    (groupId: string, doorIds: string[]) => {
+      persistArrangement({
+        ...arrangement,
+        doorOrder: { ...arrangement.doorOrder, [groupId]: doorIds },
+      });
+    },
+    [arrangement, persistArrangement],
+  );
+
   const dropGroup = useCallback(
     (groupIds: string[], draggedId: string, beforeId: string | null) => {
       persistArrangement(placeGroup(arrangement, groupIds, draggedId, beforeId));
     },
     [arrangement, persistArrangement],
   );
+
+  const hideDoor = useCallback((door: Door) => {
+    setHiddenByDoorId((current) => {
+      const next = { ...current, [door.id]: true };
+      void storageSet(HIDDEN_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const showDoor = useCallback((door: Door) => {
+    setHiddenByDoorId((current) => {
+      if (current[door.id] !== true) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[door.id];
+      void storageSet(HIDDEN_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const hideDoors = useCallback((items: Door[]) => {
+    setHiddenByDoorId((current) => {
+      const next = { ...current };
+      for (const door of items) {
+        next[door.id] = true;
+      }
+      void storageSet(HIDDEN_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const resetLayout = useCallback(() => {
+    persistArrangement(emptyArrangement);
+    setZoneByDoorId({});
+    void storageSet(ZONE_KEY, JSON.stringify({}));
+  }, [persistArrangement]);
 
   const dropDoor = useCallback(
     (
@@ -285,25 +363,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [loadLiveDoors, mode, tokens]);
 
   const value = useMemo<SessionContextValue>(
-    () => ({
-      mode,
-      doors,
-      buildingName,
-      canSignIn: hasBmxCredentials(),
-      bootError,
-      unlock,
-      openSignIn,
-      completeSignIn,
-      signOut,
-      refreshDoors,
-      zoneByDoorId,
-      cycleDoorZone,
-      openUntilByDoorId,
-      arrangement,
-      dropGroup,
-      dropDoor,
-    }),
+    () => {
+      const live = Array.isArray(doors)
+        ? { doors, account }
+        : unpackLiveBuilding(doors);
+      return {
+        mode,
+        account: live.account,
+        doors: live.doors,
+        buildingName,
+        canSignIn: hasBmxCredentials(),
+        bootError,
+        unlock,
+        openSignIn,
+        completeSignIn,
+        signOut,
+        refreshDoors,
+        zoneByDoorId,
+        cycleDoorZone,
+        openUntilByDoorId,
+        arrangement,
+        reorderGroups,
+        reorderDoors,
+        dropGroup,
+        dropDoor,
+        hiddenByDoorId,
+        hideDoor,
+        showDoor,
+        hideDoors,
+        resetLayout,
+      };
+    },
     [
+      account,
       buildingName,
       bootError,
       cycleDoorZone,
@@ -316,9 +408,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       unlock,
       zoneByDoorId,
       arrangement,
+      reorderGroups,
+      reorderDoors,
       dropGroup,
       dropDoor,
       openUntilByDoorId,
+      hiddenByDoorId,
+      hideDoor,
+      showDoor,
+      hideDoors,
+      resetLayout,
     ],
   );
 
@@ -331,6 +430,23 @@ export function useSession(): SessionContextValue {
     throw new Error('useSession must be used within SessionProvider.');
   }
   return value;
+}
+
+function unpackLiveBuilding(result: unknown): {
+  doors: Door[];
+  account: Account | null;
+} {
+  if (Array.isArray(result)) {
+    return { doors: result as Door[], account: null };
+  }
+  if (typeof result !== 'object' || result === null) {
+    return { doors: [], account: null };
+  }
+  const record = result as { doors?: unknown; account?: Account | null };
+  return {
+    doors: Array.isArray(record.doors) ? record.doors : [],
+    account: record.account ?? null,
+  };
 }
 
 function parseTokens(raw: string | null): AuthTokens | null {
@@ -357,6 +473,20 @@ function parseZones(raw: string | null): Record<string, string> {
   for (const [id, value] of Object.entries(parsed)) {
     if (typeof value === 'string' && value.length > 0) {
       next[id] = value;
+    }
+  }
+  return next;
+}
+
+function parseHidden(raw: string | null): Record<string, boolean> {
+  if (raw === null) {
+    return {};
+  }
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const next: Record<string, boolean> = {};
+  for (const [id, value] of Object.entries(parsed)) {
+    if (value === true) {
+      next[id] = true;
     }
   }
   return next;

@@ -23,4 +23,9 @@ export type AuthTokens = {
   expiresAt: number;
 };
 
+export type Account = {
+  name: string | null;
+  email: string | null;
+};
+
 export type BmxEnv = 'sandbox' | 'production';

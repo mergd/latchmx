@@ -1,38 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 
-import { DragHandle, DropTarget } from '@/components/drag-handle';
+import { ArrangeHandle } from '@/components/arrange-handle';
 import { TimerCircle } from '@/components/timer-circle';
-import type { DragPayload } from '@/lib/drag';
 import { hapticError, hapticImpact, hapticSuccess } from '@/lib/haptics';
 import { color, type } from '@/lib/theme';
 import { DOOR_OPEN_MS, type Door, type UnlockStatus } from '@/lib/types';
 
-type DoorButtonProps = {
+type DoorRowProps = {
   door: Door;
-  groupId: string;
   arranging: boolean;
+  last: boolean;
   openUntil: number | null;
+  ink?: string;
   onUnlock: (door: Door) => Promise<void>;
-  onDrop: (payload: DragPayload) => void;
-  onNativeShift?: (dir: -1 | 1) => void;
+  onHide?: (door: Door) => void;
+  onReveal?: (door: Door) => void;
 };
 
-export function DoorButton({
+export function DoorRow({
   door,
-  groupId,
   arranging,
+  last,
   openUntil,
+  ink,
   onUnlock,
-  onDrop,
-  onNativeShift,
-}: DoorButtonProps) {
+  onHide,
+  onReveal,
+}: DoorRowProps) {
+  const swipeRef = useRef<Swipeable>(null);
   const [status, setStatus] = useState<UnlockStatus>('idle');
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const timedOpen = openUntil !== null && openUntil > now;
   const remaining = timedOpen && openUntil !== null ? openUntil - now : 0;
   const isOpen = door.heldOpen || timedOpen;
   const busy = status === 'unlocking' || isOpen;
+  const revealing = onReveal !== undefined;
+  const canSwipe = !arranging && !revealing && onHide !== undefined;
+  const nameColor = revealing ? color.muted : (ink ?? color.text);
 
   useEffect(() => {
     if (!timedOpen) {
@@ -47,6 +53,11 @@ export function DoorButton({
   }, [timedOpen]);
 
   const onPress = () => {
+    if (revealing) {
+      void hapticImpact();
+      onReveal(door);
+      return;
+    }
     if (arranging || busy || status !== 'idle') {
       return;
     }
@@ -66,32 +77,66 @@ export function DoorButton({
       });
   };
 
+  const rowStyle = [
+    styles.row,
+    last ? styles.rowLast : null,
+    isOpen ? styles.rowOpen : null,
+    revealing ? styles.rowHidden : null,
+  ];
+
+  const body = (
+    <>
+      <ArrangeHandle enabled={arranging && !revealing} inset />
+      <Text style={[styles.name, { color: nameColor }]} numberOfLines={2}>
+        {labelFor(door.name, status, isOpen)}
+      </Text>
+      {timedOpen && !revealing ? (
+        <TimerCircle progress={remaining / DOOR_OPEN_MS} />
+      ) : door.heldOpen && !revealing ? (
+        <Text style={styles.open}>Open</Text>
+      ) : null}
+    </>
+  );
+
+  const row = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint={
+        revealing
+          ? 'Show this door again'
+          : canSwipe
+            ? 'Swipe right to hide'
+            : undefined
+      }
+      onPress={onPress}
+      style={({ pressed }) => [rowStyle, pressed ? styles.rowPressed : null]}
+    >
+      {body}
+    </Pressable>
+  );
+
+  if (!canSwipe) {
+    return row;
+  }
+
   return (
-    <DropTarget enabled={arranging} onDrop={onDrop}>
-      <View style={styles.row}>
-        <DragHandle
-          enabled={arranging}
-          payload={{ kind: 'door', id: door.id, groupId }}
-          onNativeShift={onNativeShift}
-        />
-        <Pressable
-          style={styles.button}
-          onPress={onPress}
-          disabled={arranging || busy}
-        >
-          <Text
-            style={StyleSheet.flatten([styles.label, isOpen ? styles.labelOpen : null])}
-            numberOfLines={1}
-          >
-            {labelFor(door.name, status, isOpen)}
-          </Text>
-          {timedOpen ? <TimerCircle progress={remaining / DOOR_OPEN_MS} /> : null}
-          {door.heldOpen && !timedOpen ? (
-            <Text style={styles.openTag}>Open</Text>
-          ) : null}
-        </Pressable>
-      </View>
-    </DropTarget>
+    <Swipeable
+      ref={swipeRef}
+      overshootLeft={false}
+      leftThreshold={72}
+      renderLeftActions={() => (
+        <View style={styles.hideAction}>
+          <Text style={styles.hideActionLabel}>Hide</Text>
+        </View>
+      )}
+      onSwipeableOpen={() => {
+        swipeRef.current?.close();
+        void hapticImpact();
+        onHide(door);
+      }}
+    >
+      {row}
+    </Swipeable>
   );
 }
 
@@ -114,33 +159,52 @@ function labelFor(name: string, status: UnlockStatus, isOpen: boolean): string {
 
 const styles = StyleSheet.create({
   row: {
+    width: '100%',
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.line,
+    cursor: 'pointer',
+    gap: 8,
   },
-  button: {
-    flex: 1,
-    minHeight: 40,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+  rowLast: {
+    borderBottomWidth: 0,
   },
-  label: {
+  rowOpen: {
+    backgroundColor: color.fill,
+  },
+  rowPressed: {
+    backgroundColor: color.fillOk,
+  },
+  name: {
     flex: 1,
-    color: color.text,
     fontFamily: type.body,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 24,
+    paddingVertical: 14,
+    paddingRight: 0,
   },
-  labelOpen: {
+  rowHidden: {
+    opacity: 0.72,
+  },
+  open: {
     color: color.muted,
-  },
-  openTag: {
-    color: color.accent,
     fontFamily: type.body,
     fontSize: 12,
+    letterSpacing: 0.4,
+  },
+  hideAction: {
+    width: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.fill,
+  },
+  hideActionLabel: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 13,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 });

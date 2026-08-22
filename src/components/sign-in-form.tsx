@@ -36,6 +36,12 @@ export function SignInForm() {
     }
   };
 
+  const onBackToSignIn = () => {
+    setAwaitingCode(false);
+    setCode('');
+    setMessage(null);
+  };
+
   return (
     <View style={styles.wrap}>
       {awaitingCode ? (
@@ -44,17 +50,6 @@ export function SignInForm() {
         </Text>
       ) : null}
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
-      <Pressable
-        style={styles.primary}
-        onPress={() => {
-          void onOpenSignIn();
-        }}
-        disabled={busy}
-      >
-        <Text style={styles.primaryLabel}>
-          {busy ? 'Opening ButterflyMX' : 'Sign in'}
-        </Text>
-      </Pressable>
       {awaitingCode ? (
         <>
           <TextInput
@@ -75,8 +70,28 @@ export function SignInForm() {
           >
             <Text style={styles.secondaryLabel}>Connect</Text>
           </Pressable>
+          <Pressable
+            onPress={onBackToSignIn}
+            disabled={busy}
+            hitSlop={8}
+            style={styles.textLink}
+          >
+            <Text style={styles.textLinkLabel}>Back to sign in</Text>
+          </Pressable>
         </>
-      ) : null}
+      ) : (
+        <Pressable
+          style={styles.primary}
+          onPress={() => {
+            void onOpenSignIn();
+          }}
+          disabled={busy}
+        >
+          <Text style={styles.primaryLabel}>
+            {busy ? 'Opening ButterflyMX' : 'Sign in'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -111,9 +126,10 @@ const styles = StyleSheet.create({
   },
   primary: {
     backgroundColor: color.accent,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
+    cursor: 'pointer',
   },
   primaryLabel: {
     color: color.onAccent,
@@ -130,5 +146,17 @@ const styles = StyleSheet.create({
     color: color.text,
     fontFamily: type.body,
     fontSize: 16,
+  },
+  textLink: {
+    alignItems: 'center',
+    cursor: 'pointer',
+    paddingVertical: 6,
+  },
+  textLinkLabel: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+    textDecorationLine: 'underline',
+    textDecorationColor: color.muted,
   },
 });

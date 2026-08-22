@@ -2,6 +2,7 @@ import {
   OTHER_GROUP_ID,
   OTHER_GROUP_LABEL,
   buildings,
+  fallbackBuilding,
   type BuildingConfig,
   type DoorGroupConfig,
 } from '@/config/buildings';
@@ -24,15 +25,34 @@ export const emptyArrangement: DoorArrangement = {
   doorOrder: {},
 };
 
-export function layoutForDoor(door: Door): BuildingConfig | null {
+export function layoutForDoors(doors: Door[]): BuildingConfig {
+  if (!Array.isArray(doors)) {
+    return fallbackBuilding;
+  }
+  const sample = doors[0];
+  return sample ? layoutForDoor(sample) : fallbackBuilding;
+}
+
+export function layoutForDoor(door: Door): BuildingConfig {
   return (
-    buildings.find((building) => matchesBuilding(building, door)) ?? null
+    buildings.find((building) => matchesBuilding(building, door)) ??
+    fallbackBuilding
+  );
+}
+
+export function hasCustomLayout(doors: Door[]): boolean {
+  if (!Array.isArray(doors)) {
+    return false;
+  }
+  const sample = doors[0];
+  return (
+    sample !== undefined &&
+    buildings.some((building) => matchesBuilding(building, sample))
   );
 }
 
 export function groupCycle(door: Door): string[] {
-  const layout = layoutForDoor(door);
-  const ids = layout?.groups.map((group) => group.id) ?? [];
+  const ids = layoutForDoor(door).groups.map((group) => group.id);
   return [...ids, OTHER_GROUP_ID];
 }
 
@@ -40,24 +60,29 @@ export function groupLabel(door: Door, groupId: string): string {
   if (groupId === OTHER_GROUP_ID) {
     return OTHER_GROUP_LABEL;
   }
-  const group = layoutForDoor(door)?.groups.find((item) => item.id === groupId);
+  const group = layoutForDoor(door).groups.find((item) => item.id === groupId);
   return group?.label ?? OTHER_GROUP_LABEL;
 }
 
-export function isHiddenDoor(door: Door): boolean {
-  const layout = layoutForDoor(door);
-  if (layout?.hide === undefined) {
-    return false;
+export function isHiddenDoor(
+  door: Door,
+  hiddenByDoorId: Record<string, boolean> = {},
+): boolean {
+  return hiddenByDoorId[door.id] === true || isConfigHidden(door);
+}
+
+export function userHiddenDoors(
+  doors: Door[],
+  hiddenByDoorId: Record<string, boolean>,
+): Door[] {
+  if (!Array.isArray(doors)) {
+    return [];
   }
-  const name = door.name.toLowerCase();
-  return layout.hide.some((item) => item.toLowerCase() === name);
+  return doors.filter((door) => hiddenByDoorId[door.id] === true);
 }
 
 export function inferGroup(door: Door): string {
   const layout = layoutForDoor(door);
-  if (layout === null) {
-    return OTHER_GROUP_ID;
-  }
   const name = door.name.toLowerCase();
   let bestId = OTHER_GROUP_ID;
   let bestScore = 0;
@@ -89,16 +114,21 @@ export function groupDoors(
   doors: Door[],
   overrides: Record<string, string>,
   arrangement: DoorArrangement = emptyArrangement,
+  hiddenByDoorId: Record<string, boolean> = {},
 ): DoorGroup[] {
-  const visible = doors.filter((door) => !isHiddenDoor(door));
+  if (!Array.isArray(doors)) {
+    return [];
+  }
+  const visible = doors.filter(
+    (door) => !isHiddenDoor(door, hiddenByDoorId),
+  );
   if (visible.length === 0) {
     return [];
   }
   const sample = visible[0];
-  const layout = sample ? layoutForDoor(sample) : null;
+  const layout = sample ? layoutForDoor(sample) : fallbackBuilding;
   const specs: { id: string; label: string }[] = [
-    ...(layout?.groups.map((group) => ({ id: group.id, label: group.label })) ??
-      []),
+    ...layout.groups.map((group) => ({ id: group.id, label: group.label })),
     { id: OTHER_GROUP_ID, label: OTHER_GROUP_LABEL },
   ];
   const buckets = new Map<string, Door[]>();
@@ -209,6 +239,18 @@ function mergeOrder(preferred: string[], available: string[]): string[] {
   const head = preferred.filter((id) => present.has(id));
   const seen = new Set(head);
   return [...head, ...available.filter((id) => !seen.has(id))];
+}
+
+function isConfigHidden(door: Door): boolean {
+  const layout = layoutForDoor(door);
+  const name = door.name.trim().toLowerCase();
+  if (layout.show !== undefined) {
+    return !layout.show.some((item) => item.trim().toLowerCase() === name);
+  }
+  if (layout.hide === undefined) {
+    return false;
+  }
+  return layout.hide.some((item) => item.trim().toLowerCase() === name);
 }
 
 function matchesBuilding(building: BuildingConfig, door: Door): boolean {
