@@ -238,19 +238,23 @@ export function parseArrangement(raw: string | null): DoorArrangement {
   if (raw === null) {
     return emptyArrangement;
   }
-  const parsed = JSON.parse(raw) as Partial<DoorArrangement>;
-  const groupOrder = Array.isArray(parsed.groupOrder)
-    ? parsed.groupOrder.filter((id): id is string => typeof id === 'string')
-    : [];
-  const doorOrder: Record<string, string[]> = {};
-  if (parsed.doorOrder !== undefined && typeof parsed.doorOrder === 'object') {
-    for (const [groupId, ids] of Object.entries(parsed.doorOrder)) {
-      if (Array.isArray(ids)) {
-        doorOrder[groupId] = ids.filter((id): id is string => typeof id === 'string');
+  try {
+    const parsed = JSON.parse(raw) as Partial<DoorArrangement>;
+    const groupOrder = Array.isArray(parsed.groupOrder)
+      ? parsed.groupOrder.filter((id): id is string => typeof id === 'string')
+      : [];
+    const doorOrder: Record<string, string[]> = {};
+    if (parsed.doorOrder !== undefined && typeof parsed.doorOrder === 'object') {
+      for (const [groupId, ids] of Object.entries(parsed.doorOrder)) {
+        if (Array.isArray(ids)) {
+          doorOrder[groupId] = ids.filter((id): id is string => typeof id === 'string');
+        }
       }
     }
+    return { groupOrder, doorOrder };
+  } catch {
+    return emptyArrangement;
   }
-  return { groupOrder, doorOrder };
 }
 
 function sortDoors(doors: Door[], preferred: string[] | undefined): Door[] {

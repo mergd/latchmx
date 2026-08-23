@@ -9,7 +9,7 @@ bun run web
 
 Then `i` for the iOS simulator.
 
-Sign in with ButterflyMX (OAuth code) to load real doors. Local `.env` only needs `BMX_CLIENT_ID` for `bun run web`; production injects the client secret on the Worker.
+Sign in with ButterflyMX (OAuth code) to load real doors. Keep `BMX_CLIENT_SECRET` in `.env` for local `bun run web` and on the Worker — never in the iOS binary. Native token exchange goes through `BMX_PROXY_ORIGIN` (default `https://bmx.fldr.zip`).
 
 ## Web (Cloudflare)
 

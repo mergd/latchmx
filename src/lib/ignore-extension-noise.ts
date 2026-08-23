@@ -1,8 +1,14 @@
+import { Platform } from 'react-native';
+
 function shouldIgnore(message: string): boolean {
   return /metamask|failed to connect to metamask/i.test(message);
 }
 
-if (typeof window !== 'undefined') {
+if (
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  typeof window.addEventListener === 'function'
+) {
   window.addEventListener(
     'error',
     (event) => {

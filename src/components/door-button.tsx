@@ -14,6 +14,7 @@ type DoorRowProps = {
   last: boolean;
   openUntil: number | null;
   ink?: string;
+  sortable?: boolean;
   onUnlock: (door: Door) => Promise<void>;
   onHide?: (door: Door) => void;
   onReveal?: (door: Door) => void;
@@ -25,6 +26,7 @@ export function DoorRow({
   last,
   openUntil,
   ink,
+  sortable = true,
   onUnlock,
   onHide,
   onReveal,
@@ -86,7 +88,7 @@ export function DoorRow({
 
   const body = (
     <>
-      <ArrangeHandle enabled={arranging && !revealing} inset />
+      <ArrangeHandle enabled={arranging && sortable && !revealing} inset />
       <Text style={[styles.name, { color: nameColor }]} numberOfLines={2}>
         {labelFor(door.name, status, isOpen)}
       </Text>

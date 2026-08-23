@@ -5,8 +5,8 @@ import type { BmxEnv } from '@/lib/types';
 type Extra = {
   bmxEnv?: string;
   bmxClientId?: string;
-  bmxClientSecret?: string;
   bmxRedirectUri?: string;
+  bmxProxyOrigin?: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
@@ -19,15 +19,19 @@ function parseEnv(value: string | undefined): BmxEnv {
 }
 
 const DEFAULT_REDIRECT = 'urn:ietf:wg:oauth:2.0:oob';
+const DEFAULT_PROXY = 'https://bmx.fldr.zip';
 
 export const bmxConfig = {
   env: parseEnv(extra.bmxEnv),
   clientId: extra.bmxClientId ?? '',
-  clientSecret: extra.bmxClientSecret ?? '',
   redirectUri:
     extra.bmxRedirectUri && extra.bmxRedirectUri.length > 0
       ? extra.bmxRedirectUri
       : DEFAULT_REDIRECT,
+  proxyOrigin:
+    extra.bmxProxyOrigin && extra.bmxProxyOrigin.length > 0
+      ? extra.bmxProxyOrigin.replace(/\/+$/, '')
+      : DEFAULT_PROXY,
 };
 
 export function hasBmxCredentials(): boolean {

@@ -33,8 +33,37 @@ import {
 import loginVisual from '../../assets/brand/login-visual.png';
 
 export default function BuildingScreen() {
+  const { mode, bootError } = useSession();
+
+  if (mode === 'loading') {
+    return <AppShell />;
+  }
+
+  if (mode === 'signed_out') {
+    return (
+      <AppShell
+        background={
+          <Image
+            source={loginVisual}
+            style={styles.loginVisual}
+            contentFit="cover"
+            accessibilityLabel="Latch mark"
+          />
+        }
+      >
+        <View style={styles.loginDock}>
+          {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
+          <SignInForm />
+        </View>
+      </AppShell>
+    );
+  }
+
+  return <SignedInHome />;
+}
+
+function SignedInHome() {
   const {
-    mode,
     doors,
     buildingName,
     unlock,
@@ -78,7 +107,6 @@ export default function BuildingScreen() {
     hiddenByDoorId,
   );
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
-  const signedOut = mode === 'signed_out';
   const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
   const buildingId = doors[0]?.buildingId;
   const kicker = arranging
@@ -137,26 +165,9 @@ export default function BuildingScreen() {
   };
 
   return (
-    <AppShell
-      background={
-        signedOut ? (
-          <Image
-            source={loginVisual}
-            style={styles.loginVisual}
-            contentFit="cover"
-            accessibilityLabel="Latch mark"
-          />
-        ) : null
-      }
-    >
-      {signedOut ? (
-        <View style={styles.loginDock}>
-          {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
-          <SignInForm />
-        </View>
-      ) : (
-        <Sortable.PortalProvider enabled={arranging}>
-          <View style={styles.screen}>
+    <AppShell>
+      <Sortable.PortalProvider enabled={arranging}>
+        <View style={styles.screen}>
             <Animated.ScrollView
               ref={scrollableRef}
               style={styles.scroller}
@@ -255,7 +266,6 @@ export default function BuildingScreen() {
             />
           </View>
         </Sortable.PortalProvider>
-      )}
     </AppShell>
   );
 }

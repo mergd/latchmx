@@ -9,6 +9,11 @@ const config: ExpoConfig = {
   scheme: 'latch',
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
+  autolinking: {
+    ios: {
+      buildFromSource: ['react-native-reanimated', 'react-native-worklets'],
+    },
+  },
   ios: {
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
@@ -53,9 +58,9 @@ const config: ExpoConfig = {
     },
     bmxEnv: process.env.BMX_ENV ?? 'production',
     bmxClientId: process.env.BMX_CLIENT_ID ?? '',
-    bmxClientSecret: process.env.BMX_CLIENT_SECRET ?? '',
     bmxRedirectUri:
       process.env.BMX_REDIRECT_URI ?? 'urn:ietf:wg:oauth:2.0:oob',
+    bmxProxyOrigin: process.env.BMX_PROXY_ORIGIN ?? 'https://bmx.fldr.zip',
   },
 };
 

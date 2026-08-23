@@ -15,18 +15,16 @@ import type { Account, AuthTokens, Door } from '@/lib/types';
 
 type JsonRecord = Record<string, unknown>;
 
-type TokenResponse = {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-};
-
 async function readJson(response: Response): Promise<unknown> {
   const text = await response.text();
   if (text.length === 0) {
     return null;
   }
-  return JSON.parse(text) as unknown;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { error_description: text.slice(0, 180) };
+  }
 }
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -46,9 +44,6 @@ export async function exchangeAuthorizationCode(
     client_id: bmxConfig.clientId,
     redirect_uri: redirectUri,
   });
-  if (bmxConfig.clientSecret.length > 0) {
-    body.set('client_secret', bmxConfig.clientSecret);
-  }
 
   const response = await fetch(`${clientAccountsOrigin()}/oauth/token`, {
     method: 'POST',
@@ -70,9 +65,6 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
     refresh_token: refreshToken,
     client_id: bmxConfig.clientId,
   });
-  if (bmxConfig.clientSecret.length > 0) {
-    body.set('client_secret', bmxConfig.clientSecret);
-  }
 
   const response = await fetch(`${clientAccountsOrigin()}/oauth/token`, {
     method: 'POST',
@@ -85,7 +77,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
     throw new Error(errorMessage(payload, 'Session expired. Sign in again.'));
   }
 
-  return tokensFromResponse(payload);
+  return tokensFromResponse(payload, refreshToken);
 }
 
 export function authorizationUrl(redirectUri: string): string {
@@ -95,6 +87,26 @@ export function authorizationUrl(redirectUri: string): string {
     response_type: 'code',
   });
   return `${bmxAccountsBaseUrl()}/oauth/authorize?${params.toString()}`;
+}
+
+export function authorizationCodeFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('code');
+    if (code !== null && code.length > 0) {
+      return code;
+    }
+  } catch {
+    const match = /[?&]code=([^&]+)/.exec(url);
+    if (match?.[1] !== undefined && match[1].length > 0) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+  }
+  return null;
 }
 
 export async function fetchDoors(accessToken: string): Promise<{
@@ -345,25 +357,27 @@ function mapBmxError(error: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
-function tokensFromResponse(payload: unknown): AuthTokens {
+function tokensFromResponse(
+  payload: unknown,
+  previousRefreshToken?: string,
+): AuthTokens {
   const record = asRecord(payload);
+  const refreshToken =
+    typeof record?.refresh_token === 'string' && record.refresh_token.length > 0
+      ? record.refresh_token
+      : previousRefreshToken;
   if (
     record === null ||
     typeof record.access_token !== 'string' ||
-    typeof record.refresh_token !== 'string' ||
+    refreshToken === undefined ||
     typeof record.expires_in !== 'number'
   ) {
     throw new Error('Unexpected token response.');
   }
-  const tokens: TokenResponse = {
-    access_token: record.access_token,
-    refresh_token: record.refresh_token,
-    expires_in: record.expires_in,
-  };
   return {
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-    expiresAt: Date.now() + tokens.expires_in * 1000,
+    accessToken: record.access_token,
+    refreshToken,
+    expiresAt: Date.now() + record.expires_in * 1000,
   };
 }
 
@@ -386,5 +400,5 @@ function clientAccountsOrigin(): string {
   if (Platform.OS === 'web') {
     return webProxyUrl('/api/accounts');
   }
-  return bmxAccountsBaseUrl();
+  return `${bmxConfig.proxyOrigin}/api/accounts`;
 }

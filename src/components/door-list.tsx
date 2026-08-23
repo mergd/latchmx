@@ -37,7 +37,6 @@ export function DoorList({
   onReveal,
   onGroupLayout,
   reorderGroups,
-  reorderDoors,
 }: DoorListProps) {
   const [pendingHide, setPendingHide] = useState<Door | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
@@ -66,7 +65,6 @@ export function DoorList({
         index={index}
         arranging={arranging}
         open={openId === group.id}
-        scrollableRef={scrollableRef}
         openUntilByDoorId={openUntilByDoorId}
         onUnlock={onUnlock}
         onHide={requestHide}
@@ -74,7 +72,6 @@ export function DoorList({
         onToggle={() => {
           toggleGroup(group.id);
         }}
-        reorderDoors={reorderDoors}
       />
     ),
     [
@@ -83,9 +80,7 @@ export function DoorList({
       onUnlock,
       openId,
       openUntilByDoorId,
-      reorderDoors,
       requestHide,
-      scrollableRef,
       toggleGroup,
     ],
   );
@@ -132,7 +127,7 @@ export function DoorList({
           keyExtractor={(group) => group.id}
           renderItem={renderGroup}
           customHandle
-          hapticsEnabled
+          hapticsEnabled={false}
           dragActivationDelay={80}
           inactiveItemOpacity={1}
           activeItemScale={1.04}
@@ -152,7 +147,6 @@ export function DoorList({
             index={index}
             arranging={false}
             open={openId === group.id}
-            scrollableRef={scrollableRef}
             openUntilByDoorId={openUntilByDoorId}
             onUnlock={onUnlock}
             onHide={requestHide}
@@ -160,7 +154,6 @@ export function DoorList({
             onToggle={() => {
               toggleGroup(group.id);
             }}
-            reorderDoors={reorderDoors}
           />
         ))
       )}
@@ -189,13 +182,11 @@ type GroupBlockProps = {
   index: number;
   arranging: boolean;
   open: boolean;
-  scrollableRef: AnimatedRef<Animated.ScrollView>;
   openUntilByDoorId: Record<string, number>;
   onUnlock: (door: Door) => Promise<void>;
   onHide: (door: Door) => void;
   onLayout: (id: string, y: number) => void;
   onToggle: () => void;
-  reorderDoors: (groupId: string, ids: string[]) => void;
 };
 
 function GroupBlock({
@@ -203,30 +194,13 @@ function GroupBlock({
   index,
   arranging,
   open,
-  scrollableRef,
   openUntilByDoorId,
   onUnlock,
   onHide,
   onLayout,
   onToggle,
-  reorderDoors,
 }: GroupBlockProps) {
   const ink = groupInk(index);
-
-  const renderDoor = useCallback<SortableGridRenderItem<Door>>(
-    ({ item: door, index: doorIndex }) => (
-      <DoorRow
-        door={door}
-        arranging={arranging}
-        last={doorIndex === group.doors.length - 1}
-        openUntil={openUntilByDoorId[door.id] ?? null}
-        ink={doorInk(index, doorIndex)}
-        onUnlock={onUnlock}
-        onHide={onHide}
-      />
-    ),
-    [arranging, group.doors.length, index, onHide, onUnlock, openUntilByDoorId],
-  );
 
   return (
     <View
@@ -243,42 +217,19 @@ function GroupBlock({
         ink={ink}
         onToggle={onToggle}
       >
-        {arranging ? (
-          <Sortable.Grid
-            columns={1}
-            data={group.doors}
-            keyExtractor={(door) => door.id}
-            renderItem={renderDoor}
-            customHandle
-            hapticsEnabled
-            dragActivationDelay={80}
-            inactiveItemOpacity={1}
-            activeItemScale={1.04}
-            itemEntering={null}
-            itemExiting={null}
-            rowGap={0}
-            scrollableRef={scrollableRef}
-            onDragEnd={({ data }) => {
-              reorderDoors(
-                group.id,
-                data.map((door) => door.id),
-              );
-            }}
+        {group.doors.map((door, doorIndex) => (
+          <DoorRow
+            key={door.id}
+            door={door}
+            arranging={arranging}
+            sortable={false}
+            last={doorIndex === group.doors.length - 1}
+            openUntil={openUntilByDoorId[door.id] ?? null}
+            ink={doorInk(index, doorIndex)}
+            onUnlock={onUnlock}
+            onHide={onHide}
           />
-        ) : (
-          group.doors.map((door, doorIndex) => (
-            <DoorRow
-              key={door.id}
-              door={door}
-              arranging={false}
-              last={doorIndex === group.doors.length - 1}
-              openUntil={openUntilByDoorId[door.id] ?? null}
-              ink={doorInk(index, doorIndex)}
-              onUnlock={onUnlock}
-              onHide={onHide}
-            />
-          ))
-        )}
+        ))}
       </DoorAccordion>
     </View>
   );

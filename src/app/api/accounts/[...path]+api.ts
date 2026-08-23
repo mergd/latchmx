@@ -1,10 +1,20 @@
 import { bmxAccountsBaseUrl } from '@/lib/config';
-import { proxyRequest } from '@/lib/server-proxy';
+import { proxyAccountsRequest } from '@/lib/server-proxy';
 
 export async function GET(request: Request) {
-  return proxyRequest(request, bmxAccountsBaseUrl(), '/api/accounts');
+  return proxyAccountsRequest(
+    request,
+    bmxAccountsBaseUrl(),
+    process.env.BMX_CLIENT_ID,
+    process.env.BMX_CLIENT_SECRET,
+  );
 }
 
 export async function POST(request: Request) {
-  return proxyRequest(request, bmxAccountsBaseUrl(), '/api/accounts');
+  return proxyAccountsRequest(
+    request,
+    bmxAccountsBaseUrl(),
+    process.env.BMX_CLIENT_ID,
+    process.env.BMX_CLIENT_SECRET,
+  );
 }

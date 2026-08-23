@@ -1,16 +1,20 @@
 import * as Linking from 'expo-linking';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
 
+import { capture, resetAnalytics } from '@/lib/analytics';
 import {
+  authorizationCodeFromUrl,
   authorizationUrl,
   exchangeAuthorizationCode,
   fetchDoors,
@@ -40,6 +44,8 @@ const TOKEN_KEY = 'latch.tokens';
 const ZONE_KEY = 'latch.zones';
 const LAYOUT_KEY = 'latch.layout';
 const HIDDEN_KEY = 'latch.hidden';
+const SPLASH_FALLBACK_MS = 8000;
+const LOAD_DOORS_MS = 15_000;
 
 type SessionContextValue = {
   mode: SessionMode;
@@ -98,22 +104,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [openUntilByDoorId, setOpenUntilByDoorId] = useState<Record<string, number>>(
     {},
   );
+  const bootSeq = useRef(0);
+  const seenAuthUrl = useRef<string | null>(null);
+  const signInInFlight = useRef<{
+    code: string;
+    promise: Promise<void>;
+  } | null>(null);
 
   const persistTokens = useCallback(async (next: AuthTokens | null) => {
     setTokens(next);
     if (next === null) {
-      await storageRemove(TOKEN_KEY);
+      await storageRemove(TOKEN_KEY, { secure: true });
       return;
     }
-    await storageSet(TOKEN_KEY, JSON.stringify(next));
+    await storageSet(TOKEN_KEY, JSON.stringify(next), { secure: true });
   }, []);
 
   const loadLiveDoors = useCallback(async (current: AuthTokens) => {
+    const seq = bootSeq.current;
     const fresh = await ensureFreshTokens(current);
+    if (seq !== bootSeq.current) {
+      return;
+    }
     if (fresh.accessToken !== current.accessToken) {
       await persistTokens(fresh);
     }
+    if (seq !== bootSeq.current) {
+      return;
+    }
     const snapshot = unpackLiveBuilding(await fetchDoors(fresh.accessToken));
+    if (seq !== bootSeq.current) {
+      return;
+    }
     setDoors(snapshot.doors);
     setAccount(snapshot.account);
     setBuildingName(snapshot.doors[0]?.buildingName ?? 'Your building');
@@ -121,51 +143,88 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [persistTokens]);
 
   useEffect(() => {
-    let cancelled = false;
+    const seq = ++bootSeq.current;
 
     async function hydrate() {
       try {
-        const stored = await storageGet(TOKEN_KEY);
+        const stored = await storageGet(TOKEN_KEY, { secure: true });
         const storedZones = await storageGet(ZONE_KEY);
         const storedLayout = await storageGet(LAYOUT_KEY);
         const storedHidden = await storageGet(HIDDEN_KEY);
-        if (!cancelled) {
-          setZoneByDoorId(parseZones(storedZones));
-          setArrangement(parseArrangement(storedLayout));
-          setHiddenByDoorId(parseHidden(storedHidden));
-        }
-        let parsed = parseTokens(stored);
-        if (cancelled) {
+        if (seq !== bootSeq.current) {
           return;
         }
+        setZoneByDoorId(parseZones(storedZones));
+        setArrangement(parseArrangement(storedLayout));
+        setHiddenByDoorId(parseHidden(storedHidden));
+        const parsed = parseTokens(stored);
         if (parsed === null) {
           setMode('signed_out');
           return;
         }
         setTokens(parsed);
-        await loadLiveDoors(parsed);
-        setBootError(null);
-      } catch (error) {
-        if (!cancelled) {
-          setTokens(null);
-          setAccount(null);
-          setDoors([]);
-          setBuildingName('');
-          setMode('signed_out');
+        try {
+          await withTimeout(
+            loadLiveDoors(parsed),
+            LOAD_DOORS_MS,
+            'Timed out loading your building.',
+          );
+          if (seq !== bootSeq.current) {
+            return;
+          }
+          setBootError(null);
+        } catch (error) {
+          if (seq !== bootSeq.current) {
+            return;
+          }
+          bootSeq.current += 1;
+          setMode('signed_in');
           setBootError(
             error instanceof Error
               ? error.message
               : 'Could not load your building.',
           );
         }
+      } catch (error) {
+        if (seq !== bootSeq.current) {
+          return;
+        }
+        setTokens(null);
+        setAccount(null);
+        setDoors([]);
+        setBuildingName('');
+        setMode('signed_out');
+        setBootError(
+          error instanceof Error
+            ? error.message
+            : 'Could not load your building.',
+        );
       }
     }
 
     void hydrate();
     return () => {
-      cancelled = true;
+      if (bootSeq.current === seq) {
+        bootSeq.current += 1;
+      }
     };
-  }, [loadLiveDoors, persistTokens]);
+  }, [loadLiveDoors]);
+
+  useEffect(() => {
+    if (mode === 'loading') {
+      return;
+    }
+    void SplashScreen.hideAsync();
+  }, [mode]);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      void SplashScreen.hideAsync();
+    }, SPLASH_FALLBACK_MS);
+    return () => {
+      clearTimeout(id);
+    };
+  }, []);
 
   const unlock = useCallback(
     async (door: Door) => {
@@ -179,16 +238,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (fresh.accessToken !== tokens.accessToken) {
         await persistTokens(fresh);
       }
-      await releaseDoor(fresh.accessToken, door);
-      setOpenUntilByDoorId((current) => ({
-        ...current,
-        [door.id]: Date.now() + DOOR_OPEN_MS,
-      }));
+      try {
+        await releaseDoor(fresh.accessToken, door);
+        setOpenUntilByDoorId((current) => ({
+          ...current,
+          [door.id]: Date.now() + DOOR_OPEN_MS,
+        }));
+        capture('door_unlocked', {
+          door_id: door.id,
+          door_name: door.name,
+          building_id: door.buildingId,
+        });
+      } catch (error) {
+        capture('door_unlock_failed', {
+          door_id: door.id,
+          door_name: door.name,
+          building_id: door.buildingId,
+        });
+        throw error;
+      }
     },
     [openUntilByDoorId, persistTokens, tokens],
   );
 
   const signOut = useCallback(async () => {
+    capture('signed_out');
+    resetAnalytics();
     await persistTokens(null);
     setAccount(null);
     setDoors([]);
@@ -220,15 +295,57 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (trimmed.length === 0) {
         throw new Error('Paste the authorization code from ButterflyMX.');
       }
-      const nextTokens = await exchangeAuthorizationCode(
-        trimmed,
-        bmxConfig.redirectUri,
-      );
-      await persistTokens(nextTokens);
-      await loadLiveDoors(nextTokens);
+      if (signInInFlight.current?.code === trimmed) {
+        return signInInFlight.current.promise;
+      }
+      const promise = (async () => {
+        const nextTokens = await exchangeAuthorizationCode(
+          trimmed,
+          bmxConfig.redirectUri,
+        );
+        await persistTokens(nextTokens);
+        await loadLiveDoors(nextTokens);
+        capture('signed_in');
+      })();
+      signInInFlight.current = { code: trimmed, promise };
+      try {
+        await promise;
+      } finally {
+        if (signInInFlight.current?.code === trimmed) {
+          signInInFlight.current = null;
+        }
+      }
     },
     [loadLiveDoors, persistTokens],
   );
+
+  useEffect(() => {
+    if (mode === 'loading') {
+      return;
+    }
+
+    const consume = (url: string | null) => {
+      if (url === null || url === seenAuthUrl.current) {
+        return;
+      }
+      const code = authorizationCodeFromUrl(url);
+      if (code === null) {
+        return;
+      }
+      seenAuthUrl.current = url;
+      void completeSignIn(code).catch(() => {
+        return;
+      });
+    };
+
+    void Linking.getInitialURL().then(consume);
+    const subscription = Linking.addEventListener('url', (event) => {
+      consume(event.url);
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [completeSignIn, mode]);
 
   const persistArrangement = useCallback((next: DoorArrangement) => {
     setArrangement(next);
@@ -455,43 +572,73 @@ function parseTokens(raw: string | null): AuthTokens | null {
   if (raw === null) {
     return null;
   }
-  const parsed = JSON.parse(raw) as AuthTokens;
-  if (
-    typeof parsed.accessToken !== 'string' ||
-    typeof parsed.refreshToken !== 'string' ||
-    typeof parsed.expiresAt !== 'number'
-  ) {
+  try {
+    const parsed = JSON.parse(raw) as AuthTokens;
+    if (
+      typeof parsed.accessToken !== 'string' ||
+      typeof parsed.refreshToken !== 'string' ||
+      typeof parsed.expiresAt !== 'number'
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
     return null;
   }
-  return parsed;
 }
 
 function parseZones(raw: string | null): Record<string, string> {
   if (raw === null) {
     return {};
   }
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  const next: Record<string, string> = {};
-  for (const [id, value] of Object.entries(parsed)) {
-    if (typeof value === 'string' && value.length > 0) {
-      next[id] = value;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const next: Record<string, string> = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      if (typeof value === 'string' && value.length > 0) {
+        next[id] = value;
+      }
     }
+    return next;
+  } catch {
+    return {};
   }
-  return next;
 }
 
 function parseHidden(raw: string | null): Record<string, boolean> {
   if (raw === null) {
     return {};
   }
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  const next: Record<string, boolean> = {};
-  for (const [id, value] of Object.entries(parsed)) {
-    if (value === true) {
-      next[id] = true;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const next: Record<string, boolean> = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      if (value === true) {
+        next[id] = true;
+      }
     }
+    return next;
+  } catch {
+    return {};
   }
-  return next;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => {
+      reject(new Error(message));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(id);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(id);
+        reject(error);
+      },
+    );
+  });
 }
 
 async function ensureFreshTokens(tokens: AuthTokens): Promise<AuthTokens> {
