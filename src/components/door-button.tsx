@@ -33,6 +33,7 @@ export function DoorRow({
 }: DoorRowProps) {
   const swipeRef = useRef<Swipeable>(null);
   const [status, setStatus] = useState<UnlockStatus>('idle');
+  const [failLabel, setFailLabel] = useState('Couldn’t open');
   const [now, setNow] = useState(0);
   const timedOpen = openUntil !== null && openUntil > now;
   const remaining = timedOpen && openUntil !== null ? openUntil - now : 0;
@@ -70,12 +71,16 @@ export function DoorRow({
         setStatus('idle');
         await hapticSuccess();
       })
-      .catch(async () => {
+      .catch(async (error) => {
+        const expired =
+          error instanceof Error && /session expired/i.test(error.message);
         setStatus('error');
+        setFailLabel(expired ? 'Session expired' : 'Couldn’t open');
         await hapticError();
         setTimeout(() => {
           setStatus('idle');
-        }, 1400);
+          setFailLabel('Couldn’t open');
+        }, expired ? 2800 : 1400);
       });
   };
 
@@ -90,7 +95,7 @@ export function DoorRow({
     <>
       <ArrangeHandle enabled={arranging && sortable && !revealing} inset />
       <Text style={[styles.name, { color: nameColor }]} numberOfLines={2}>
-        {labelFor(door.name, status, isOpen)}
+        {labelFor(door.name, status, isOpen, failLabel)}
       </Text>
       {timedOpen && !revealing ? (
         <TimerCircle progress={remaining / DOOR_OPEN_MS} />
@@ -142,16 +147,21 @@ export function DoorRow({
   );
 }
 
-function labelFor(name: string, status: UnlockStatus, isOpen: boolean): string {
+function labelFor(
+  name: string,
+  status: UnlockStatus,
+  isOpen: boolean,
+  failLabel: string,
+): string {
   switch (status) {
     case 'idle':
       return name;
     case 'unlocking':
-      return name;
+      return 'Opening…';
     case 'open':
       return name;
     case 'error':
-      return isOpen ? name : 'Couldn’t open';
+      return isOpen ? name : failLabel;
     default: {
       const _never: never = status;
       return _never;

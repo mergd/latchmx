@@ -1,97 +1,76 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AuthCodeDialog } from '@/components/auth-code-dialog';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export function SignInForm() {
-  const { openSignIn, completeSignIn } = useSession();
+  const { openSignIn, completeSignIn, canSignIn } = useSession();
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
-  const [code, setCode] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
-  const onOpenSignIn = async () => {
-    setBusy(true);
+  const onOpenLogin = useCallback(async () => {
     setMessage(null);
     try {
       await openSignIn();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not open sign-in.');
-    } finally {
-      setAwaitingCode(true);
-      setBusy(false);
+      setMessage(
+        error instanceof Error ? error.message : 'Could not open ButterflyMX.',
+      );
     }
-  };
+  }, [openSignIn]);
 
-  const onSubmitCode = async () => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await completeSignIn(code);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Sign-in failed.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onBackToSignIn = () => {
-    setAwaitingCode(false);
-    setCode('');
-    setMessage(null);
-  };
+  const onInstall = useCallback(
+    async (code: string) => {
+      setBusy(true);
+      setMessage(null);
+      try {
+        await completeSignIn(code);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Sign-in failed.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [completeSignIn],
+  );
 
   return (
     <View style={styles.wrap}>
-      {awaitingCode ? (
-        <Text style={styles.lede}>
-          Paste the one-time code ButterflyMX shows, then connect.
+      {message !== null && !awaitingCode ? (
+        <Text style={styles.error}>{message}</Text>
+      ) : null}
+      {!canSignIn ? (
+        <Text style={styles.error}>
+          This build isn’t set up for ButterflyMX sign-in.
         </Text>
       ) : null}
-      {message !== null ? <Text style={styles.error}>{message}</Text> : null}
-      {awaitingCode ? (
-        <>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="Authorization code"
-            placeholderTextColor={color.muted}
-            style={styles.input}
-            value={code}
-            onChangeText={setCode}
-          />
-          <Pressable
-            style={styles.secondary}
-            onPress={() => {
-              void onSubmitCode();
-            }}
-            disabled={busy}
-          >
-            <Text style={styles.secondaryLabel}>Connect</Text>
-          </Pressable>
-          <Pressable
-            onPress={onBackToSignIn}
-            disabled={busy}
-            hitSlop={8}
-            style={styles.textLink}
-          >
-            <Text style={styles.textLinkLabel}>Back to sign in</Text>
-          </Pressable>
-        </>
-      ) : (
-        <Pressable
-          style={styles.primary}
-          onPress={() => {
-            void onOpenSignIn();
-          }}
-          disabled={busy}
-        >
-          <Text style={styles.primaryLabel}>
-            {busy ? 'Opening ButterflyMX' : 'Sign in'}
-          </Text>
-        </Pressable>
-      )}
+      <Pressable
+        style={[styles.primary, !canSignIn ? styles.primaryDisabled : null]}
+        onPress={() => {
+          if (!canSignIn) {
+            return;
+          }
+          setMessage(null);
+          setAwaitingCode(true);
+        }}
+        disabled={!canSignIn}
+      >
+        <Text style={styles.primaryLabel}>Sign in</Text>
+      </Pressable>
+      <AuthCodeDialog
+        visible={awaitingCode}
+        busy={busy}
+        error={message}
+        onOpenLogin={onOpenLogin}
+        onCancel={() => {
+          setAwaitingCode(false);
+          setMessage(null);
+        }}
+        onInstall={onInstall}
+      />
     </View>
   );
 }
@@ -100,29 +79,10 @@ const styles = StyleSheet.create({
   wrap: {
     gap: 8,
   },
-  lede: {
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 8,
-    opacity: 0.78,
-  },
   error: {
     color: color.bad,
     fontFamily: type.body,
     fontSize: 14,
-  },
-  input: {
-    backgroundColor: color.surface,
-    borderWidth: 1,
-    borderColor: color.line,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 16,
   },
   primary: {
     backgroundColor: color.accent,
@@ -131,32 +91,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     cursor: 'pointer',
   },
+  primaryDisabled: {
+    opacity: 0.45,
+  },
   primaryLabel: {
     color: color.onAccent,
     fontFamily: type.body,
     fontSize: 16,
-  },
-  secondary: {
-    backgroundColor: color.surface,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryLabel: {
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 16,
-  },
-  textLink: {
-    alignItems: 'center',
-    cursor: 'pointer',
-    paddingVertical: 6,
-  },
-  textLinkLabel: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 14,
-    textDecorationLine: 'underline',
-    textDecorationColor: color.muted,
   },
 });

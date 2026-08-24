@@ -50,13 +50,30 @@ export function DoorList({
     knownIds.push(HIDDEN_GROUP_ID);
   }
   const openId =
-    openGroupId !== null && knownIds.includes(openGroupId)
-      ? openGroupId
-      : (groups[0]?.id ?? null);
+    openGroupId === ''
+      ? null
+      : openGroupId !== null && knownIds.includes(openGroupId)
+        ? openGroupId
+        : (groups[0]?.id ?? null);
 
-  const toggleGroup = useCallback((id: string) => {
-    setOpenGroupId(id);
-  }, []);
+  const firstGroupId = groups[0]?.id ?? null;
+  const toggleGroup = useCallback(
+    (id: string) => {
+      setOpenGroupId((current) => {
+        if (current === '') {
+          return id;
+        }
+        if (current === id) {
+          return '';
+        }
+        if (current === null && id === firstGroupId) {
+          return '';
+        }
+        return id;
+      });
+    },
+    [firstGroupId],
+  );
 
   const renderGroup = useCallback<SortableGridRenderItem<DoorGroup>>(
     ({ item: group, index }) => (
@@ -161,7 +178,7 @@ export function DoorList({
       <ConfirmDialog
         visible={pendingHide !== null}
         title="Hide this door?"
-        body="It’ll move to Hidden at the bottom. You can bring it back while arranging."
+        body="It’ll move to Hidden at the bottom. Tap it there to bring it back."
         confirmLabel="Hide"
         onCancel={() => {
           setPendingHide(null);

@@ -139,6 +139,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setDoors(snapshot.doors);
     setAccount(snapshot.account);
     setBuildingName(snapshot.doors[0]?.buildingName ?? 'Your building');
+    setBootError(null);
     setMode('signed_in');
   }, [persistTokens]);
 
@@ -268,6 +269,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setAccount(null);
     setDoors([]);
     setBuildingName('');
+    setBootError(null);
     setMode('signed_out');
   }, [persistTokens]);
 
@@ -305,6 +307,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         );
         await persistTokens(nextTokens);
         await loadLiveDoors(nextTokens);
+        setBootError(null);
         capture('signed_in');
       })();
       signInInFlight.current = { code: trimmed, promise };
@@ -333,8 +336,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
       seenAuthUrl.current = url;
-      void completeSignIn(code).catch(() => {
-        return;
+      void completeSignIn(code).catch((error) => {
+        setBootError(
+          error instanceof Error ? error.message : 'Could not complete sign-in.',
+        );
       });
     };
 
@@ -478,7 +483,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (tokens === null || mode !== 'signed_in') {
       return;
     }
-    await loadLiveDoors(tokens);
+    try {
+      await loadLiveDoors(tokens);
+    } catch (error) {
+      setBootError(
+        error instanceof Error ? error.message : 'Could not load your building.',
+      );
+    }
   }, [loadLiveDoors, mode, tokens]);
 
   const value = useMemo<SessionContextValue>(

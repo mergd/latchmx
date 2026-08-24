@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { List, RotateCcw, Settings } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -25,7 +25,6 @@ import { color, groupInk, type } from '@/lib/theme';
 import {
   differsFromBaseLayout,
   groupDoors,
-  hasCustomLayout,
   layoutForDoors,
   userHiddenDoors,
 } from '@/lib/zones';
@@ -36,7 +35,14 @@ export default function BuildingScreen() {
   const { mode, bootError } = useSession();
 
   if (mode === 'loading') {
-    return <AppShell />;
+    return (
+      <AppShell>
+        <View style={styles.boot}>
+          <ActivityIndicator color={color.accent} />
+          <Text style={styles.bootLabel}>Loading your building</Text>
+        </View>
+      </AppShell>
+    );
   }
 
   if (mode === 'signed_out') {
@@ -77,6 +83,7 @@ function SignedInHome() {
     hideDoor,
     showDoor,
     resetLayout,
+    refreshDoors,
   } = useSession();
   const [arranging, setArranging] = useState(false);
   const [pendingReset, setPendingReset] = useState(false);
@@ -99,7 +106,6 @@ function SignedInHome() {
     [doors, hiddenByDoorId],
   );
   const layout = layoutForDoors(doors);
-  const mapped = hasCustomLayout(doors);
   const canReset = differsFromBaseLayout(
     doors,
     zoneByDoorId,
@@ -108,14 +114,10 @@ function SignedInHome() {
   );
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
   const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
-  const buildingId = doors[0]?.buildingId;
   const kicker = arranging
-    ? 'Drag a grip to reorder'
-    : mapped
-      ? (layout.address ?? '')
-      : buildingId === undefined
-        ? 'Not in Latch yet — add a layout to customize this.'
-        : `Not in Latch yet — add a layout (${buildingId}) to customize this.`;
+    ? 'Drag sections to reorder'
+    : (layout.address ?? '');
+  const empty = groups.length === 0 && hidden.length === 0;
   const pinTargets = useMemo(() => {
     const items = groups.map((group, index) => ({
       id: group.id,
@@ -206,7 +208,19 @@ function SignedInHome() {
                     />
                   </View>
                   {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
-                  {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
+                  {bootError !== null ? (
+                    <View style={styles.errorRow}>
+                      <Text style={styles.error}>{bootError}</Text>
+                      <Pressable
+                        onPress={() => {
+                          void refreshDoors();
+                        }}
+                        hitSlop={8}
+                      >
+                        <Text style={styles.retry}>Retry</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
               </View>
               <View
@@ -215,21 +229,38 @@ function SignedInHome() {
                   listYRef.current = event.nativeEvent.layout.y;
                 }}
               >
-                <DoorList
-                  groups={groups}
-                  hidden={hidden}
-                  arranging={arranging}
-                  scrollableRef={scrollableRef}
-                  openUntilByDoorId={openUntilByDoorId}
-                  onUnlock={unlock}
-                  onHide={hideDoor}
-                  onReveal={showDoor}
-                  onGroupLayout={(id, y) => {
-                    sectionYRef.current[id] = y;
-                  }}
-                  reorderGroups={reorderGroups}
-                  reorderDoors={reorderDoors}
-                />
+                {empty && bootError === null ? (
+                  <View style={styles.empty}>
+                    <Text style={styles.emptyTitle}>No doors yet</Text>
+                    <Text style={styles.emptyBody}>
+                      Latch couldn’t find an unlockable door on this account.
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        void refreshDoors();
+                      }}
+                      style={styles.emptyRetry}
+                    >
+                      <Text style={styles.retry}>Retry</Text>
+                    </Pressable>
+                  </View>
+                ) : empty ? null : (
+                  <DoorList
+                    groups={groups}
+                    hidden={hidden}
+                    arranging={arranging}
+                    scrollableRef={scrollableRef}
+                    openUntilByDoorId={openUntilByDoorId}
+                    onUnlock={unlock}
+                    onHide={hideDoor}
+                    onReveal={showDoor}
+                    onGroupLayout={(id, y) => {
+                      sectionYRef.current[id] = y;
+                    }}
+                    reorderGroups={reorderGroups}
+                    reorderDoors={reorderDoors}
+                  />
+                )}
               </View>
             </Animated.ScrollView>
             <StickyBuildingHeader
@@ -288,7 +319,7 @@ function BuildingActions({
       ) : null}
       <IconButton
         icon={List}
-        label={arranging ? 'Done arranging' : 'Arrange doors'}
+        label={arranging ? 'Done arranging' : 'Arrange sections'}
         active={arranging}
         onPress={onToggleArrange}
       />
@@ -355,11 +386,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 20,
   },
-  error: {
+  boot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  bootLabel: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 15,
+  },
+  errorRow: {
     marginTop: 8,
+    gap: 6,
+  },
+  error: {
     color: color.bad,
     fontFamily: type.body,
     fontSize: 14,
+  },
+  retry: {
+    color: color.accent,
+    fontFamily: type.body,
+    fontSize: 14,
+    textDecorationLine: 'underline',
+    textDecorationColor: color.accent,
+  },
+  empty: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 8,
+  },
+  emptyTitle: {
+    color: color.text,
+    fontFamily: type.body,
+    fontSize: 16,
+  },
+  emptyBody: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  emptyRetry: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
   },
   scroller: {
     flex: 1,

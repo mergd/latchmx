@@ -14,7 +14,10 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "6804158514"
+        "ascAppId": "6804158514",
+        "ascApiKeyId": "M59JJX5KS5",
+        "ascApiKeyIssuerId": "45b3887f-3ccb-4ea8-9f28-61d14d676839",
+        "ascApiKeyPath": "/Users/william/.appstoreconnect/private_keys/AuthKey_M59JJX5KS5.p8"
       }
     }
   }

@@ -1,17 +1,26 @@
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { IconButton } from '@/components/icon-button';
 import { SignInForm } from '@/components/sign-in-form';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export default function SettingsScreen() {
-  const { account, mode, signOut } = useSession();
+  const { account, buildingName, mode, signOut } = useSession();
+  const [pendingSignOut, setPendingSignOut] = useState(false);
   const name = account?.name?.trim() ?? '';
   const email = account?.email?.trim() ?? '';
+  const identity =
+    name.length > 0 || email.length > 0
+      ? { name, email }
+      : buildingName.length > 0
+        ? { name: buildingName, email: '' }
+        : { name: 'Signed in', email: '' };
 
   return (
     <AppShell>
@@ -26,13 +35,11 @@ export default function SettingsScreen() {
           />
           <Text style={styles.title}>Account</Text>
         </View>
-        {mode === 'signed_in' && (name.length > 0 || email.length > 0) ? (
+        {mode === 'signed_in' ? (
           <View style={styles.identity}>
-            {name.length > 0 ? <Text style={styles.accountName}>{name}</Text> : null}
-            {email.length > 0 ? (
-              <Text style={name.length > 0 ? styles.accountEmail : styles.accountName}>
-                {email}
-              </Text>
+            <Text style={styles.accountName}>{identity.name}</Text>
+            {identity.email.length > 0 ? (
+              <Text style={styles.accountEmail}>{identity.email}</Text>
             ) : null}
           </View>
         ) : null}
@@ -42,7 +49,7 @@ export default function SettingsScreen() {
         <Pressable
           style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
           onPress={() => {
-            void signOut();
+            setPendingSignOut(true);
           }}
         >
           <Text style={styles.rowLabel}>Sign out</Text>
@@ -52,6 +59,19 @@ export default function SettingsScreen() {
           <SignInForm />
         </View>
       )}
+      <ConfirmDialog
+        visible={pendingSignOut}
+        title="Sign out?"
+        body="You’ll need a ButterflyMX authorization code to get back in."
+        confirmLabel="Sign out"
+        onCancel={() => {
+          setPendingSignOut(false);
+        }}
+        onConfirm={() => {
+          setPendingSignOut(false);
+          void signOut();
+        }}
+      />
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
@@ -52,14 +52,14 @@ export default function OAuthRedirect() {
       </Text>
       {message !== null ? <Text style={styles.body}>{message}</Text> : null}
       {status === 'error' ? (
-        <Text
-          style={styles.link}
+        <Pressable
           onPress={() => {
             setStatus('done');
           }}
+          hitSlop={8}
         >
-          Back to Latch
-        </Text>
+          <Text style={styles.link}>Back to Latch</Text>
+        </Pressable>
       ) : null}
     </View>
   );
