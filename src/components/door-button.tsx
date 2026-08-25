@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import type { SharedValue } from 'react-native-reanimated';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 import { ArrangeHandle } from '@/components/arrange-handle';
 import { TimerCircle } from '@/components/timer-circle';
@@ -31,7 +33,6 @@ export function DoorRow({
   onHide,
   onReveal,
 }: DoorRowProps) {
-  const swipeRef = useRef<Swipeable>(null);
   const [status, setStatus] = useState<UnlockStatus>('idle');
   const [failLabel, setFailLabel] = useState('Couldn’t open');
   const [now, setNow] = useState(0);
@@ -112,7 +113,7 @@ export function DoorRow({
         revealing
           ? 'Show this door again'
           : canSwipe
-            ? 'Swipe right to hide'
+            ? 'Swipe right, then tap Hide'
             : undefined
       }
       onPress={onPress}
@@ -128,22 +129,49 @@ export function DoorRow({
 
   return (
     <Swipeable
-      ref={swipeRef}
       overshootLeft={false}
-      leftThreshold={72}
-      renderLeftActions={() => (
-        <View style={styles.hideAction}>
-          <Text style={styles.hideActionLabel}>Hide</Text>
-        </View>
+      leftThreshold={40}
+      childrenContainerStyle={styles.rowSurface}
+      renderLeftActions={(progress) => (
+        <HideAction
+          progress={progress}
+          onPress={() => {
+            void hapticImpact();
+            onHide(door);
+          }}
+        />
       )}
-      onSwipeableOpen={() => {
-        swipeRef.current?.close();
-        void hapticImpact();
-        onHide(door);
-      }}
     >
       {row}
     </Swipeable>
+  );
+}
+
+function HideAction({
+  progress,
+  onPress,
+}: {
+  progress: SharedValue<number>;
+  onPress: () => void;
+}) {
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.55, 1], [0, 0.7, 1]),
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [-16, 0]) }],
+  }));
+
+  return (
+    <View style={styles.hideAction}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Hide"
+        onPress={onPress}
+        style={styles.hideHit}
+      >
+        <Animated.Text style={[styles.hideActionLabel, labelStyle]}>
+          Hide
+        </Animated.Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -170,12 +198,16 @@ function labelFor(
 }
 
 const styles = StyleSheet.create({
+  rowSurface: {
+    backgroundColor: color.canvas,
+  },
   row: {
     width: '100%',
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
+    backgroundColor: color.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.line,
     cursor: 'pointer',
@@ -185,10 +217,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   rowOpen: {
-    backgroundColor: color.fill,
+    backgroundColor: color.surface,
   },
   rowPressed: {
-    backgroundColor: color.fillOk,
+    backgroundColor: color.surface,
   },
   name: {
     flex: 1,
@@ -208,10 +240,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   hideAction: {
-    width: 88,
+    width: 80,
+    alignSelf: 'stretch',
+    backgroundColor: color.surface,
+  },
+  hideHit: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: color.fill,
+    cursor: 'pointer',
   },
   hideActionLabel: {
     color: color.muted,

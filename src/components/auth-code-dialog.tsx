@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   Keyboard,
   Modal,
@@ -12,6 +12,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { color, type } from '@/lib/theme';
+
+type Step = 'instruct' | 'paste';
 
 type AuthCodeDialogProps = {
   visible: boolean;
@@ -32,15 +34,17 @@ export function AuthCodeDialog({
 }: AuthCodeDialogProps) {
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
-  const openedLogin = useRef(false);
+  const [step, setStep] = useState<Step>('instruct');
+  const [browsing, setBrowsing] = useState(false);
   const [code, setCode] = useState('');
   const [keyboardInset, setKeyboardInset] = useState(0);
 
   useEffect(() => {
     if (!visible) {
+      setStep('instruct');
+      setBrowsing(false);
       setCode('');
       setKeyboardInset(0);
-      openedLogin.current = false;
       return;
     }
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -51,22 +55,35 @@ export function AuthCodeDialog({
     const hide = Keyboard.addListener(hideEvent, () => {
       setKeyboardInset(0);
     });
-    const open = setTimeout(() => {
-      if (openedLogin.current) {
-        return;
-      }
-      openedLogin.current = true;
-      void onOpenLogin();
-    }, 500);
     return () => {
       show.remove();
       hide.remove();
-      clearTimeout(open);
     };
-  }, [onOpenLogin, visible]);
+  }, [visible]);
 
-  const lift = keyboardInset > 0 ? keyboardInset : insets.bottom;
-  const centered = Platform.OS === 'web' && keyboardInset === 0;
+  useEffect(() => {
+    if (!visible || browsing || step !== 'paste') {
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(id);
+    };
+  }, [browsing, step, visible]);
+
+  const goToPortal = async () => {
+    setStep('paste');
+    if (Platform.OS !== 'web') {
+      setBrowsing(true);
+    }
+    try {
+      await onOpenLogin();
+    } finally {
+      setBrowsing(false);
+    }
+  };
 
   const submit = () => {
     const trimmed = code.trim();
@@ -77,12 +94,15 @@ export function AuthCodeDialog({
     void onInstall(trimmed);
   };
 
+  const lift = keyboardInset > 0 ? keyboardInset : insets.bottom;
+  const centered = Platform.OS === 'web' && keyboardInset === 0;
+
   return (
     <Modal
-      visible={visible}
+      visible={visible && !browsing}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={busy ? undefined : onCancel}
     >
       <View
         style={[
@@ -96,23 +116,86 @@ export function AuthCodeDialog({
           onPress={busy ? undefined : onCancel}
         />
         <View style={styles.card}>
-          <Text style={styles.title}>Paste the code</Text>
+          {renderStep(step, {
+            busy,
+            code,
+            error,
+            onCancel,
+            onChangeCode: setCode,
+            onGoToPortal: () => {
+              void goToPortal();
+            },
+            onSubmit: submit,
+            inputRef,
+          })}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function renderStep(
+  step: Step,
+  props: {
+    busy: boolean;
+    code: string;
+    error: string | null;
+    onCancel: () => void;
+    onChangeCode: (value: string) => void;
+    onGoToPortal: () => void;
+    onSubmit: () => void;
+    inputRef: RefObject<TextInput | null>;
+  },
+) {
+  switch (step) {
+    case 'instruct':
+      return (
+        <>
+          <Text style={styles.title}>Copy the value</Text>
           <Text style={styles.body}>
-            ButterflyMX will ask you to sign in, then show an authorization
-            code. Copy that code, paste it here, and tap Install.
+            ButterflyMX will ask you to sign in, then show a value. Copy it,
+            come back here, and paste.
+          </Text>
+          {props.error !== null ? <Text style={styles.error}>{props.error}</Text> : null}
+          <View style={styles.actions}>
+            <Pressable
+              style={({ pressed }) => [styles.btn, pressed ? styles.btnPressed : null]}
+              onPress={props.onCancel}
+              disabled={props.busy}
+            >
+              <Text style={styles.btnLabel}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.btn,
+                styles.btnPrimary,
+                pressed ? styles.btnPressed : null,
+              ]}
+              onPress={props.onGoToPortal}
+              disabled={props.busy}
+            >
+              <Text style={styles.btnPrimaryLabel}>Go to portal</Text>
+            </Pressable>
+          </View>
+        </>
+      );
+    case 'paste':
+      return (
+        <>
+          <Text style={styles.title}>Paste the value</Text>
+          <Text style={styles.body}>
+            Paste the value you copied, then tap Install.
           </Text>
           <Pressable
-            onPress={() => {
-              void onOpenLogin();
-            }}
+            onPress={props.onGoToPortal}
             hitSlop={8}
             style={styles.loginLink}
           >
-            <Text style={styles.loginLinkLabel}>Open ButterflyMX sign-in</Text>
+            <Text style={styles.loginLinkLabel}>Open portal again</Text>
           </Pressable>
-          {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+          {props.error !== null ? <Text style={styles.error}>{props.error}</Text> : null}
           <TextInput
-            ref={inputRef}
+            ref={props.inputRef}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="off"
@@ -120,40 +203,42 @@ export function AuthCodeDialog({
             placeholder="Authorization code"
             placeholderTextColor={color.muted}
             style={styles.input}
-            value={code}
-            autoFocus
-            editable={!busy}
+            value={props.code}
+            editable={!props.busy}
             returnKeyType="done"
-            onChangeText={setCode}
-            onSubmitEditing={submit}
+            onChangeText={props.onChangeCode}
+            onSubmitEditing={props.onSubmit}
           />
           <View style={styles.actions}>
             <Pressable
               style={({ pressed }) => [styles.btn, pressed ? styles.btnPressed : null]}
-              onPress={onCancel}
-              disabled={busy}
+              onPress={props.onCancel}
+              disabled={props.busy}
             >
               <Text style={styles.btnLabel}>Cancel</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.btn,
-                styles.btnInstall,
+                styles.btnPrimary,
                 pressed ? styles.btnPressed : null,
-                busy || code.trim().length === 0 ? styles.btnBusy : null,
+                props.busy || props.code.trim().length === 0 ? styles.btnBusy : null,
               ]}
-              onPress={submit}
-              disabled={busy || code.trim().length === 0}
+              onPress={props.onSubmit}
+              disabled={props.busy || props.code.trim().length === 0}
             >
-              <Text style={styles.btnInstallLabel}>
-                {busy ? 'Installing' : 'Install'}
+              <Text style={styles.btnPrimaryLabel}>
+                {props.busy ? 'Installing' : 'Install'}
               </Text>
             </Pressable>
           </View>
-        </View>
-      </View>
-    </Modal>
-  );
+        </>
+      );
+    default: {
+      const _never: never = step;
+      return _never;
+    }
+  }
 }
 
 const styles = StyleSheet.create({
@@ -233,7 +318,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     cursor: 'pointer',
   },
-  btnInstall: {
+  btnPrimary: {
     backgroundColor: color.accent,
   },
   btnBusy: {
@@ -247,7 +332,7 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 15,
   },
-  btnInstallLabel: {
+  btnPrimaryLabel: {
     color: color.onAccent,
     fontFamily: type.body,
     fontSize: 15,

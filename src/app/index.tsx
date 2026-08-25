@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { List, RotateCcw, Settings } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
+import { KeyRound, List, RotateCcw, Settings } from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -15,6 +15,7 @@ import Sortable from 'react-native-sortables';
 import { AppShell } from '@/components/app-shell';
 import { BuildingHero } from '@/components/building-hero';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { DeadKey } from '@/components/dead-key';
 import { DoorList } from '@/components/door-list';
 import { IconButton } from '@/components/icon-button';
 import { SignInForm } from '@/components/sign-in-form';
@@ -43,6 +44,13 @@ export default function BuildingScreen() {
         </View>
       </AppShell>
     );
+  }
+
+  if (mode === 'guest') {
+    if (bootError !== null) {
+      return <DeadKey message={bootError} />;
+    }
+    return <SignedInHome />;
   }
 
   if (mode === 'signed_out') {
@@ -84,7 +92,11 @@ function SignedInHome() {
     showDoor,
     resetLayout,
     refreshDoors,
+    mode,
+    guestExpiresAt,
   } = useSession();
+  const guest = mode === 'guest';
+  const [now, setNow] = useState(0);
   const [arranging, setArranging] = useState(false);
   const [pendingReset, setPendingReset] = useState(false);
   const [section, setSection] = useState('');
@@ -112,11 +124,25 @@ function SignedInHome() {
     arrangement,
     hiddenByDoorId,
   );
+  useEffect(() => {
+    if (!guest || guestExpiresAt === null) {
+      return;
+    }
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [guest, guestExpiresAt]);
+
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
   const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
-  const kicker = arranging
-    ? 'Drag sections to reorder'
-    : (layout.address ?? '');
+  const kicker = guest
+    ? guestKicker(guestExpiresAt, now)
+    : arranging
+      ? 'Drag sections to reorder'
+      : (layout.address ?? '');
   const empty = groups.length === 0 && hidden.length === 0;
   const pinTargets = useMemo(() => {
     const items = groups.map((group, index) => ({
@@ -196,16 +222,18 @@ function SignedInHome() {
                     <Text style={styles.title} numberOfLines={1}>
                       {title}
                     </Text>
-                    <BuildingActions
-                      arranging={arranging}
-                      canReset={canReset}
-                      onToggleArrange={() => {
-                        setArranging((current) => !current);
-                      }}
-                      onReset={() => {
-                        setPendingReset(true);
-                      }}
-                    />
+                    {guest ? null : (
+                      <BuildingActions
+                        arranging={arranging}
+                        canReset={canReset}
+                        onToggleArrange={() => {
+                          setArranging((current) => !current);
+                        }}
+                        onReset={() => {
+                          setPendingReset(true);
+                        }}
+                      />
+                    )}
                   </View>
                   {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
                   {bootError !== null ? (
@@ -252,8 +280,8 @@ function SignedInHome() {
                     scrollableRef={scrollableRef}
                     openUntilByDoorId={openUntilByDoorId}
                     onUnlock={unlock}
-                    onHide={hideDoor}
-                    onReveal={showDoor}
+                    onHide={guest ? undefined : hideDoor}
+                    onReveal={guest ? undefined : showDoor}
                     onGroupLayout={(id, y) => {
                       sectionYRef.current[id] = y;
                     }}
@@ -270,16 +298,18 @@ function SignedInHome() {
               style={stickyStyle}
               interactive={chromePinned}
               actions={
-                <BuildingActions
-                  arranging={arranging}
-                  canReset={canReset}
-                  onToggleArrange={() => {
-                    setArranging((current) => !current);
-                  }}
-                  onReset={() => {
-                    setPendingReset(true);
-                  }}
-                />
+                guest ? undefined : (
+                  <BuildingActions
+                    arranging={arranging}
+                    canReset={canReset}
+                    onToggleArrange={() => {
+                      setArranging((current) => !current);
+                    }}
+                    onReset={() => {
+                      setPendingReset(true);
+                    }}
+                  />
+                )
               }
             />
             <ConfirmDialog
@@ -299,6 +329,28 @@ function SignedInHome() {
         </Sortable.PortalProvider>
     </AppShell>
   );
+}
+
+function guestKicker(expiresAt: number | null, now: number): string {
+  if (expiresAt === null || now === 0) {
+    return 'Guest access';
+  }
+  const left = expiresAt - now;
+  if (left <= 0) {
+    return 'This key expired';
+  }
+  if (left < 60_000) {
+    return `Expires in ${Math.max(1, Math.ceil(left / 1000))}s`;
+  }
+  if (left < 60 * 60_000) {
+    return `Expires in ${Math.ceil(left / 60_000)}m`;
+  }
+  const hours = Math.floor(left / 3_600_000);
+  const minutes = Math.ceil((left % 3_600_000) / 60_000);
+  if (minutes === 60) {
+    return `Expires in ${hours + 1}h`;
+  }
+  return minutes > 0 ? `Expires in ${hours}h ${minutes}m` : `Expires in ${hours}h`;
 }
 
 function BuildingActions({
@@ -322,6 +374,13 @@ function BuildingActions({
         label={arranging ? 'Done arranging' : 'Arrange sections'}
         active={arranging}
         onPress={onToggleArrange}
+      />
+      <IconButton
+        icon={KeyRound}
+        label="Keys"
+        onPress={() => {
+          router.push('/keys');
+        }}
       />
       <IconButton
         icon={Settings}

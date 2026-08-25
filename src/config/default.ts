@@ -4,7 +4,7 @@ const fallback: BuildingConfig = {
   id: 'default',
   match: {},
   hero: {
-    uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/New_York_City_appartment_building.jpg/960px-New_York_City_appartment_building.jpg',
+    uri: 'https://bmx.fldr.zip/buildings/default.jpg',
   },
   groups: [
     {

@@ -1,13 +1,13 @@
 {
   "canonicalMark": {
-    "path": "assets/brand/mark-master.png",
+    "path": "assets/brand/mark-v07-aqua-icon.png",
     "format": "png",
     "immutable": true,
     "masterSize": 1024,
     "clearSpace": 0.12,
     "allowedTransforms": ["resize", "crop", "compose"]
   },
-  "approvedMarkVariants": ["assets/brand/mark-master.png"],
+  "approvedMarkVariants": ["assets/brand/mark-v07-aqua-icon.png"],
   "designLanguage": {
     "palette": {
       "surface": "#0B1A33",
@@ -35,7 +35,7 @@
     "title": "Latch",
     "description": "Personal building access.",
     "image": "/brand/login-visual.png",
-    "imageAlt": "Latch mark on a dark navy field.",
+    "imageAlt": "Latch gel butterfly on an aurora gradient.",
     "card": "summary_large_image",
     "url": "https://bmx.fldr.zip/"
   }

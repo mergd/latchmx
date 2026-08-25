@@ -15,7 +15,29 @@ export type Door = {
 
 export type UnlockStatus = 'idle' | 'unlocking' | 'open' | 'error';
 
-export type SessionMode = 'loading' | 'signed_out' | 'signed_in';
+export type SessionMode = 'loading' | 'signed_out' | 'signed_in' | 'guest';
+
+export const KEY_TTLS = ['1h', 'tonight', '24h'] as const;
+
+export type KeyTtl = (typeof KEY_TTLS)[number];
+
+export type IssuedKey = {
+  id: string;
+  expiresAt: number;
+  createdAt: number;
+  revoked: boolean;
+  doorCount: number;
+};
+
+export type CreatedKey = IssuedKey & {
+  url: string;
+};
+
+export type GuestSession = {
+  doors: Door[];
+  buildingName: string;
+  expiresAt: number;
+};
 
 export type AuthTokens = {
   accessToken: string;

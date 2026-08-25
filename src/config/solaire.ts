@@ -34,7 +34,7 @@ const solaire: BuildingConfig = {
   displayName: "Solaire",
   address: "299 Fremont",
   hero: {
-    uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Solaire_San_Francisco.jpg/960px-Solaire_San_Francisco.jpg",
+    uri: "https://bmx.fldr.zip/buildings/solaire.jpg",
   },
   groups: [
     {

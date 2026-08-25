@@ -46,14 +46,24 @@ export default function SettingsScreen() {
       </View>
 
       {mode === 'signed_in' ? (
-        <Pressable
-          style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
-          onPress={() => {
-            setPendingSignOut(true);
-          }}
-        >
-          <Text style={styles.rowLabel}>Sign out</Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
+            onPress={() => {
+              router.push('/keys');
+            }}
+          >
+            <Text style={styles.rowLabel}>Keys</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
+            onPress={() => {
+              setPendingSignOut(true);
+            }}
+          >
+            <Text style={styles.rowLabel}>Sign out</Text>
+          </Pressable>
+        </>
       ) : (
         <View style={styles.form}>
           <SignInForm />

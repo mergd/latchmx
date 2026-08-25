@@ -4,7 +4,6 @@ import type { AnimatedRef } from 'react-native-reanimated';
 import Animated from 'react-native-reanimated';
 import Sortable, { type SortableGridRenderItem } from 'react-native-sortables';
 
-import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DoorAccordion } from '@/components/door-accordion';
 import { DoorRow } from '@/components/door-button';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL } from '@/config/buildings';
@@ -19,8 +18,8 @@ type DoorListProps = {
   scrollableRef: AnimatedRef<Animated.ScrollView>;
   openUntilByDoorId: Record<string, number>;
   onUnlock: (door: Door) => Promise<void>;
-  onHide: (door: Door) => void;
-  onReveal: (door: Door) => void;
+  onHide?: (door: Door) => void;
+  onReveal?: (door: Door) => void;
   onGroupLayout: (id: string, y: number) => void;
   reorderGroups: (ids: string[]) => void;
   reorderDoors: (groupId: string, ids: string[]) => void;
@@ -38,12 +37,7 @@ export function DoorList({
   onGroupLayout,
   reorderGroups,
 }: DoorListProps) {
-  const [pendingHide, setPendingHide] = useState<Door | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-
-  const requestHide = useCallback((door: Door) => {
-    setPendingHide(door);
-  }, []);
 
   const knownIds = groups.map((group) => group.id);
   if (hidden.length > 0) {
@@ -84,7 +78,7 @@ export function DoorList({
         open={openId === group.id}
         openUntilByDoorId={openUntilByDoorId}
         onUnlock={onUnlock}
-        onHide={requestHide}
+        onHide={onHide}
         onLayout={onGroupLayout}
         onToggle={() => {
           toggleGroup(group.id);
@@ -94,10 +88,10 @@ export function DoorList({
     [
       arranging,
       onGroupLayout,
+      onHide,
       onUnlock,
       openId,
       openUntilByDoorId,
-      requestHide,
       toggleGroup,
     ],
   );
@@ -166,7 +160,7 @@ export function DoorList({
             open={openId === group.id}
             openUntilByDoorId={openUntilByDoorId}
             onUnlock={onUnlock}
-            onHide={requestHide}
+            onHide={onHide}
             onLayout={onGroupLayout}
             onToggle={() => {
               toggleGroup(group.id);
@@ -175,21 +169,6 @@ export function DoorList({
         ))
       )}
       {hiddenSection}
-      <ConfirmDialog
-        visible={pendingHide !== null}
-        title="Hide this door?"
-        body="It’ll move to Hidden at the bottom. Tap it there to bring it back."
-        confirmLabel="Hide"
-        onCancel={() => {
-          setPendingHide(null);
-        }}
-        onConfirm={() => {
-          if (pendingHide !== null) {
-            onHide(pendingHide);
-          }
-          setPendingHide(null);
-        }}
-      />
     </View>
   );
 }
@@ -201,7 +180,7 @@ type GroupBlockProps = {
   open: boolean;
   openUntilByDoorId: Record<string, number>;
   onUnlock: (door: Door) => Promise<void>;
-  onHide: (door: Door) => void;
+  onHide?: (door: Door) => void;
   onLayout: (id: string, y: number) => void;
   onToggle: () => void;
 };

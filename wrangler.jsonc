@@ -11,6 +11,12 @@
     "BMX_API_ORIGIN": "https://api.butterflymx.com",
     "BMX_ACCOUNTS_ORIGIN": "https://accounts.butterflymx.com"
   },
+  "kv_namespaces": [
+    {
+      "binding": "KEYS",
+      "id": "c133787b1a864d65a0958a45f4ad9338"
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

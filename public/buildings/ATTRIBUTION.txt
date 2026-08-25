@@ -1,0 +1,13 @@
+solaire.jpg
+  Solaire San Francisco
+  Photo: Dead.rabbit
+  License: CC BY-SA 4.0
+  https://commons.wikimedia.org/wiki/File:Solaire_San_Francisco.jpg
+  https://creativecommons.org/licenses/by-sa/4.0/
+
+default.jpg
+  New York City apartment building (Lower East Side)
+  Photo: Norbert Nagel
+  License: CC BY-SA 3.0
+  https://commons.wikimedia.org/wiki/File:New_York_City_appartment_building.jpg
+  https://creativecommons.org/licenses/by-sa/3.0/

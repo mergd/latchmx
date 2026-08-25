@@ -1,16 +1,33 @@
 import { proxyAccountsRequest, proxyRequest } from '../src/lib/server-proxy';
 
-type Env = {
-  ASSETS: Fetcher;
-  BMX_API_ORIGIN: string;
-  BMX_ACCOUNTS_ORIGIN: string;
-  BMX_CLIENT_ID?: string;
-  BMX_CLIENT_SECRET?: string;
-};
+import type { Env } from './env';
+import { HttpError, corsHeaders, json } from './http';
+import { handleGuestRequest, handleKeysRequest } from './keys';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const headers = corsHeaders(request);
+
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
+      return new Response(null, { status: 204, headers });
+    }
+
+    try {
+      if (url.pathname.startsWith('/api/keys')) {
+        return await handleKeysRequest(request, env, headers);
+      }
+      if (url.pathname.startsWith('/api/guest')) {
+        return await handleGuestRequest(request, env, headers);
+      }
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return json({ error: error.message }, error.status, headers);
+      }
+      const message =
+        error instanceof Error ? error.message : 'Something went wrong.';
+      return json({ error: message }, 500, headers);
+    }
 
     if (url.pathname.startsWith('/api/bmx')) {
       return proxyRequest(request, env.BMX_API_ORIGIN, '/api/bmx');
