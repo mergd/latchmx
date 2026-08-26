@@ -1,21 +1,20 @@
 {
   "canonicalMark": {
-    "path": "assets/brand/mark-v07-aqua-icon.png",
+    "path": "assets/brand/mark-v10-notion-icon.png",
     "format": "png",
     "immutable": true,
     "masterSize": 1024,
     "clearSpace": 0.12,
     "allowedTransforms": ["resize", "crop", "compose"]
   },
-  "approvedMarkVariants": ["assets/brand/mark-v07-aqua-icon.png"],
+  "approvedMarkVariants": ["assets/brand/mark-v10-notion-icon.png"],
   "designLanguage": {
     "palette": {
-      "surface": "#0B1A33",
-      "accent": "#C9A36A",
-      "ink": "#EDE8E0",
-      "navy": "#07101F",
-      "blue": "#3A6BFF",
-      "amber": "#E08A3C"
+      "canvas": "#0E0E0D",
+      "surface": "#181817",
+      "ink": "#F2F1EC",
+      "muted": "#9A9892",
+      "accent": "#E4E1D8"
     },
     "typography": {
       "display": { "family": "Fraunces", "weight": 600, "tracking": "-0.03em" },
@@ -29,13 +28,14 @@
   },
   "outputs": {
     "directory": "public/brand",
-    "loginVisual": { "mode": "png-3-4", "width": 1080, "height": 1440 }
+    "loginVisual": { "mode": "png-3-4", "width": 1080, "height": 1440 },
+    "shareCard": { "width": 1200, "height": 630, "safeInset": 72 }
   },
   "socialMetadata": {
     "title": "Latch",
     "description": "Personal building access.",
-    "image": "/brand/login-visual.png",
-    "imageAlt": "Latch gel butterfly on an aurora gradient.",
+    "image": "/brand/og.png",
+    "imageAlt": "Latch mark on a cream field.",
     "card": "summary_large_image",
     "url": "https://bmx.fldr.zip/"
   }

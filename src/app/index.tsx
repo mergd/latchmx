@@ -46,13 +46,6 @@ export default function BuildingScreen() {
     );
   }
 
-  if (mode === 'guest') {
-    if (bootError !== null) {
-      return <DeadKey message={bootError} />;
-    }
-    return <SignedInHome />;
-  }
-
   if (mode === 'signed_out') {
     return (
       <AppShell
@@ -71,6 +64,10 @@ export default function BuildingScreen() {
         </View>
       </AppShell>
     );
+  }
+
+  if (mode === 'guest' && bootError !== null) {
+    return <DeadKey message={bootError} />;
   }
 
   return <SignedInHome />;
@@ -94,6 +91,7 @@ function SignedInHome() {
     refreshDoors,
     mode,
     guestExpiresAt,
+    guestInvite,
   } = useSession();
   const guest = mode === 'guest';
   const [now, setNow] = useState(0);
@@ -251,6 +249,19 @@ function SignedInHome() {
                   ) : null}
                 </View>
               </View>
+              {guest && guestInvite !== null ? (
+                <View style={styles.guestInvite}>
+                  <Text style={styles.guestInviteLabel}>{guestInvite.label}</Text>
+                  {guestInvite.inviterName !== null ? (
+                    <Text style={styles.guestInviteFrom}>
+                      From {guestInvite.inviterName}
+                    </Text>
+                  ) : null}
+                  {guestInvite.note !== null ? (
+                    <Text style={styles.guestInviteNote}>{guestInvite.note}</Text>
+                  ) : null}
+                </View>
+              ) : null}
               <View
                 style={styles.listMeasure}
                 onLayout={(event) => {
@@ -444,6 +455,32 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 14,
     minHeight: 20,
+  },
+  guestInvite: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 14,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: color.surface,
+    gap: 4,
+  },
+  guestInviteLabel: {
+    color: color.text,
+    fontFamily: type.body,
+    fontSize: 17,
+  },
+  guestInviteFrom: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+  },
+  guestInviteNote: {
+    marginTop: 6,
+    color: color.text,
+    fontFamily: type.body,
+    fontSize: 14,
+    lineHeight: 20,
   },
   boot: {
     flex: 1,

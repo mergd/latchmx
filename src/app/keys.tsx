@@ -1,7 +1,17 @@
+import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -27,6 +37,9 @@ export default function KeysScreen() {
   const [copied, setCopied] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<IssuedKey | null>(null);
   const [now, setNow] = useState(0);
+  const [label, setLabel] = useState('');
+  const [note, setNote] = useState('');
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await listKeys();
@@ -65,14 +78,17 @@ export default function KeysScreen() {
     setBusy(ttl);
     setError(null);
     try {
-      const next = await createKey(ttl);
+      const next = await createKey({ ttl, label, note });
       await refresh();
-      const when = expiryCopy(next.expiresAt, Date.now()).until.replace(/^Until /, '');
-      const result = await shareText(next.url, `Latch key — dies at ${when}`);
-      if (result === 'copied') {
-        setCreated(next);
-        setCopied(true);
-      }
+      const when = expiryCopy(next.expiresAt, next.createdAt).until.replace(
+        /^Until /,
+        '',
+      );
+      const result = await shareText(next.url, inviteShareText(next, when));
+      setCreated(next);
+      setCopied(result === 'copied');
+      setLabel('');
+      setNote('');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not create that key.');
     } finally {
@@ -84,10 +100,26 @@ export default function KeysScreen() {
     if (created === null) {
       return;
     }
-    const when = expiryCopy(created.expiresAt, Date.now()).until.replace(/^Until /, '');
-    const result = await shareText(created.url, `Latch key — dies at ${when}`);
+    const when = expiryCopy(
+      created.expiresAt,
+      now === 0 ? created.createdAt : now,
+    ).until.replace(/^Until /, '');
+    const result = await shareText(created.url, inviteShareText(created, when));
     if (result === 'copied') {
       setCopied(true);
+    }
+  };
+
+  const onCopy = async (key: IssuedKey) => {
+    if (key.url === null) {
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(key.url);
+      setCopiedKeyId(key.id);
+      setError(null);
+    } catch {
+      setError('Could not copy that link.');
     }
   };
 
@@ -111,82 +143,135 @@ export default function KeysScreen() {
 
   return (
     <AppShell>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <IconButton
-            icon={ChevronLeft}
-            label="Back"
-            onPress={() => {
-              router.back();
-            }}
-          />
-          <Text style={styles.title}>Keys</Text>
-        </View>
-        <Text style={styles.lede}>
-          A link opens Latch in the browser. No PIN. It dies when the clock runs out.
-        </Text>
-      </View>
-
-      {signedIn ? (
-        <View style={styles.durations}>
-          {DURATIONS.map((item) => (
-            <Pressable
-              key={item.ttl}
-              disabled={busy !== null}
+      <ScrollView
+        style={styles.scroller}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <IconButton
+              icon={ChevronLeft}
+              label="Back"
               onPress={() => {
-                void onCreate(item.ttl);
+                router.back();
               }}
-              style={({ pressed }) => [
-                styles.duration,
-                pressed ? styles.durationPressed : null,
-                busy === item.ttl ? styles.durationBusy : null,
-              ]}
-            >
-              <Text style={styles.durationLabel}>{item.label}</Text>
-              <Text style={styles.durationHint}>{item.hint}</Text>
-            </Pressable>
-          ))}
+            />
+            <Text style={styles.title}>Keys</Text>
+          </View>
+          <Text style={styles.lede}>
+            A link opens Latch in the browser. No PIN. It dies when the clock runs
+            out.
+          </Text>
         </View>
-      ) : (
-        <Text style={styles.empty}>Sign in to mint a key.</Text>
-      )}
 
-      {error !== null ? <Text style={styles.error}>{error}</Text> : null}
-
-      <View style={styles.list}>
-        <Text style={styles.section}>Live</Text>
-        {loading ? (
-          <ActivityIndicator color={color.accent} style={styles.spinner} />
-        ) : live.length === 0 ? (
-          <Text style={styles.empty}>No live keys.</Text>
-        ) : (
-          live.map((key) => (
-            <View key={key.id} style={styles.row}>
-              <View style={styles.rowCopy}>
-                <Text style={styles.rowTitle}>{remainingLabel(key.expiresAt, now)}</Text>
-                <Text style={styles.rowHint}>
-                  {key.doorCount > 0 ? `${key.doorCount} doors` : 'All doors'}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  setPendingRevoke(key);
-                }}
-                style={({ pressed }) => [
-                  styles.revoke,
-                  pressed ? styles.durationPressed : null,
-                ]}
-              >
-                <Text style={styles.revokeLabel}>Revoke</Text>
-              </Pressable>
+        {signedIn ? (
+          <View style={styles.create}>
+            <TextInput
+              value={label}
+              onChangeText={setLabel}
+              placeholder="Invite label"
+              placeholderTextColor={color.muted}
+              maxLength={60}
+              returnKeyType="next"
+              accessibilityLabel="Invite label"
+              style={styles.input}
+            />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder="Note (optional)"
+              placeholderTextColor={color.muted}
+              maxLength={240}
+              multiline
+              accessibilityLabel="Invite note"
+              style={[styles.input, styles.noteInput]}
+            />
+            <View style={styles.durations}>
+              {DURATIONS.map((item) => (
+                <Pressable
+                  key={item.ttl}
+                  disabled={busy !== null}
+                  onPress={() => {
+                    void onCreate(item.ttl);
+                  }}
+                  style={({ pressed }) => [
+                    styles.duration,
+                    pressed ? styles.durationPressed : null,
+                    busy === item.ttl ? styles.durationBusy : null,
+                  ]}
+                >
+                  <Text style={styles.durationLabel}>{item.label}</Text>
+                  <Text style={styles.durationHint}>{item.hint}</Text>
+                </Pressable>
+              ))}
             </View>
-          ))
+          </View>
+        ) : (
+          <Text style={styles.empty}>Sign in to make an invite.</Text>
         )}
-      </View>
+
+        {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+
+        <View style={styles.list}>
+          <Text style={styles.section}>Live invites</Text>
+          {loading ? (
+            <ActivityIndicator color={color.accent} style={styles.spinner} />
+          ) : live.length === 0 ? (
+            <Text style={styles.empty}>No live invites.</Text>
+          ) : (
+            live.map((key) => (
+              <View key={key.id} style={styles.row}>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>{key.label}</Text>
+                  <Text style={styles.rowHint}>
+                    {remainingLabel(key.expiresAt, now)} ·{' '}
+                    {key.doorCount > 0 ? `${key.doorCount} doors` : 'All doors'}
+                  </Text>
+                  {key.note !== null ? (
+                    <Text style={styles.rowNote} numberOfLines={2}>
+                      {key.note}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.rowActions}>
+                  {key.url !== null ? (
+                    <Pressable
+                      onPress={() => {
+                        void onCopy(key);
+                      }}
+                      style={({ pressed }) => [
+                        styles.rowAction,
+                        pressed ? styles.durationPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.copyLabel}>
+                        {copiedKeyId === key.id ? 'Copied' : 'Copy'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    onPress={() => {
+                      setPendingRevoke(key);
+                    }}
+                    style={({ pressed }) => [
+                      styles.rowAction,
+                      pressed ? styles.durationPressed : null,
+                    ]}
+                  >
+                    <Text style={styles.revokeLabel}>Revoke</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
 
       <ConfirmDialog
         visible={created !== null}
-        title="Key is live"
+        title="Invite is live"
         body={
           created === null
             ? ''
@@ -195,7 +280,7 @@ export default function KeysScreen() {
               : expiryDialogBody(created.expiresAt, now === 0 ? created.expiresAt : now, created.url)
         }
         confirmLabel={
-          copied ? 'Done' : Platform.OS === 'web' ? 'Copy link' : 'Share'
+          copied ? 'Done' : Platform.OS === 'web' ? 'Copy link' : 'Share again'
         }
         onCancel={() => {
           setCreated(null);
@@ -207,12 +292,18 @@ export default function KeysScreen() {
             setCopied(false);
             return;
           }
+          if (Platform.OS === 'web' && created !== null) {
+            void Clipboard.setStringAsync(created.url).then(() => {
+              setCopied(true);
+            });
+            return;
+          }
           void onShare();
         }}
       />
       <ConfirmDialog
         visible={pendingRevoke !== null}
-        title="Revoke this key?"
+        title="Revoke this invite?"
         body="The link dies immediately. Anyone holding it loses the doors."
         confirmLabel="Revoke"
         onCancel={() => {
@@ -224,6 +315,11 @@ export default function KeysScreen() {
       />
     </AppShell>
   );
+}
+
+function inviteShareText(key: IssuedKey, when: string): string {
+  const from = key.inviterName === null ? '' : ` from ${key.inviterName}`;
+  return `${key.label}${from}. Latch access ends at ${when}.`;
 }
 
 function remainingLabel(expiresAt: number, now: number): string {
@@ -249,6 +345,12 @@ function remainingLabel(expiresAt: number, now: number): string {
 }
 
 const styles = StyleSheet.create({
+  scroller: {
+    flex: 1,
+  },
+  content: {
+    paddingBottom: 40,
+  },
   header: {
     paddingHorizontal: 16,
     paddingTop: 4,
@@ -275,8 +377,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  durations: {
+  create: {
     paddingHorizontal: 12,
+    gap: 8,
+  },
+  input: {
+    minHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    backgroundColor: color.surface,
+    color: color.text,
+    fontFamily: type.body,
+    fontSize: 16,
+  },
+  noteInput: {
+    minHeight: 76,
+    textAlignVertical: 'top',
+  },
+  durations: {
     gap: 8,
   },
   duration: {
@@ -320,9 +439,7 @@ const styles = StyleSheet.create({
   section: {
     color: color.muted,
     fontFamily: type.body,
-    fontSize: 12,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+    fontSize: 15,
     paddingHorizontal: 4,
   },
   spinner: {
@@ -339,8 +456,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 56,
+    minHeight: 72,
     paddingHorizontal: 4,
+    paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: color.line,
   },
@@ -358,12 +476,29 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 13,
   },
-  revoke: {
+  rowNote: {
+    marginTop: 4,
+    color: color.text,
+    fontFamily: type.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  rowAction: {
     minHeight: 36,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 12,
     justifyContent: 'center',
     cursor: 'pointer',
+  },
+  copyLabel: {
+    color: color.accent,
+    fontFamily: type.body,
+    fontSize: 14,
   },
   revokeLabel: {
     color: color.bad,

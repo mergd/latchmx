@@ -3,7 +3,8 @@ import { ScrollViewStyleReset } from 'expo-router/html';
 
 const ogTitle = 'Latch';
 const ogDescription = 'Personal building access.';
-const ogImage = 'https://bmx.fldr.zip/brand/login-visual.png';
+const ogImage = 'https://bmx.fldr.zip/brand/og.png';
+const ogImageAlt = 'Latch mark on a cream field.';
 const ogUrl = 'https://bmx.fldr.zip/';
 
 export default function Root({ children }: { children: ReactNode }) {
@@ -21,14 +22,16 @@ export default function Root({ children }: { children: ReactNode }) {
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDescription} />
         <meta property="og:image" content={ogImage} />
+        <meta property="og:image:alt" content={ogImageAlt} />
         <meta property="og:url" content={ogUrl} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDescription} />
         <meta name="twitter:image" content={ogImage} />
+        <meta name="twitter:image:alt" content={ogImageAlt} />
         <ScrollViewStyleReset />
       </head>
-      <body style={{ backgroundColor: '#07101F' }}>{children}</body>
+      <body style={{ backgroundColor: '#0E0E0D' }}>{children}</body>
     </html>
   );
 }

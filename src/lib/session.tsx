@@ -38,6 +38,7 @@ import {
   type AuthTokens,
   type CreatedKey,
   type Door,
+  type GuestInvite,
   type IssuedKey,
   type KeyTtl,
   type SessionMode,
@@ -96,7 +97,12 @@ type SessionContextValue = {
   hideDoors: (doors: Door[]) => void;
   resetLayout: () => void;
   guestExpiresAt: number | null;
-  createKey: (ttl: KeyTtl) => Promise<CreatedKey>;
+  guestInvite: GuestInvite | null;
+  createKey: (input: {
+    ttl: KeyTtl;
+    label: string;
+    note: string;
+  }) => Promise<CreatedKey>;
   listKeys: () => Promise<IssuedKey[]>;
   revokeKey: (keyId: string) => Promise<void>;
 };
@@ -121,6 +127,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     {},
   );
   const [guestExpiresAt, setGuestExpiresAt] = useState<number | null>(null);
+  const [guestInvite, setGuestInvite] = useState<GuestInvite | null>(null);
   const guestSecret = useGuestSecret();
   const bootSeq = useRef(0);
   const seenAuthUrl = useRef<string | null>(null);
@@ -149,6 +156,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setAccount(null);
       setBuildingName(snapshot.buildingName);
       setGuestExpiresAt(snapshot.expiresAt);
+      setGuestInvite(snapshot.invite);
       setBootError(null);
       setMode('guest');
     } catch (error) {
@@ -158,6 +166,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setDoors([]);
       setAccount(null);
       setGuestExpiresAt(null);
+      setGuestInvite(null);
       setMode('guest');
       setBootError(error instanceof Error ? error.message : 'This key is dead.');
     }
@@ -338,6 +347,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setAccount(null);
     setDoors([]);
     setBuildingName('');
+    setGuestInvite(null);
     setBootError(null);
     setMode('signed_out');
   }, [persistTokens]);
@@ -569,7 +579,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [guestSecret, loadGuest, loadLiveDoors, mode, tokens]);
 
   const createKey = useCallback(
-    async (ttl: KeyTtl) => {
+    async ({ ttl, label, note }: { ttl: KeyTtl; label: string; note: string }) => {
       if (tokens === null) {
         throw new Error('Sign in to create a key.');
       }
@@ -585,11 +595,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         refreshToken: fresh.refreshToken,
         ttl,
         doorIds,
+        label,
+        note,
+        inviterName: account?.name?.trim() || account?.email?.trim() || '',
       });
       capture('key_created', { ttl, door_count: doorIds.length });
       return created;
     },
-    [doors, hiddenByDoorId, persistTokens, tokens],
+    [account, doors, hiddenByDoorId, persistTokens, tokens],
   );
 
   const listKeys = useCallback(async () => {
@@ -649,6 +662,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         hideDoors,
         resetLayout,
         guestExpiresAt,
+        guestInvite,
         createKey,
         listKeys,
         revokeKey,
@@ -662,6 +676,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cycleDoorZone,
       doors,
       guestExpiresAt,
+      guestInvite,
       listKeys,
       revokeKey,
       mode,

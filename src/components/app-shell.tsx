@@ -12,12 +12,10 @@ type AppShellProps = {
 export function AppShell({ children, background }: AppShellProps) {
   return (
     <View style={styles.page}>
-      <View style={styles.frame}>
-        {background}
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          {children}
-        </SafeAreaView>
-      </View>
+      {background}
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        {children}
+      </SafeAreaView>
     </View>
   );
 }
@@ -26,14 +24,6 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: color.canvas,
-    alignItems: 'center',
-  },
-  frame: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 430,
-    backgroundColor: color.canvas,
-    overflow: 'hidden',
   },
   safe: {
     flex: 1,

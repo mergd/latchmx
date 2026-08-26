@@ -46,6 +46,29 @@ export default {
       return new Response(null, { status: 404 });
     }
 
+    if (url.pathname.startsWith('/buildings/') && url.pathname.endsWith('.jpg')) {
+      return serveBuildingImage(request, env);
+    }
+
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+async function serveBuildingImage(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const asset = await env.ASSETS.fetch(new Request(url, { method: 'GET' }));
+  if (!asset.ok) {
+    return asset;
+  }
+  const body = await asset.arrayBuffer();
+  const headers = new Headers({
+    'Content-Type': 'image/jpeg',
+    'Content-Length': String(body.byteLength),
+    'Cache-Control': 'public, max-age=86400',
+    'Access-Control-Allow-Origin': '*',
+  });
+  if (request.method === 'HEAD') {
+    return new Response(null, { status: 200, headers });
+  }
+  return new Response(body, { status: 200, headers });
+}

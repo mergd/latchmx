@@ -1,4 +1,36 @@
+import { execSync } from 'child_process';
 import type { ExpoConfig } from 'expo/config';
+
+function resolveGitHash(): string {
+  const eas = process.env.EAS_BUILD_GIT_COMMIT_HASH?.trim();
+  if (eas !== undefined && eas.length > 0) {
+    return eas;
+  }
+  try {
+    return execSync('git rev-parse HEAD', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function gitIsDirty(): boolean {
+  if (process.env.EAS_BUILD === 'true') {
+    return false;
+  }
+  try {
+    return (
+      execSync('git status --porcelain', {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim().length > 0
+    );
+  } catch {
+    return false;
+  }
+}
 
 const config: ExpoConfig = {
   name: 'Latch',
@@ -25,7 +57,7 @@ const config: ExpoConfig = {
   android: {
     package: 'dev.william.latch',
     adaptiveIcon: {
-      backgroundColor: '#0B1A33',
+      backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -41,7 +73,7 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#0B1A33',
+        backgroundColor: '#0E0E0D',
         image: './assets/images/splash-icon.png',
         imageWidth: 76,
       },
@@ -61,6 +93,9 @@ const config: ExpoConfig = {
     bmxRedirectUri:
       process.env.BMX_REDIRECT_URI ?? 'urn:ietf:wg:oauth:2.0:oob',
     bmxProxyOrigin: process.env.BMX_PROXY_ORIGIN ?? 'https://bmx.fldr.zip',
+    buildHash: resolveGitHash(),
+    buildDirty: gitIsDirty(),
+    feedbackEmail: process.env.FEEDBACK_EMAIL ?? 'hello@fldr.zip',
   },
 };
 

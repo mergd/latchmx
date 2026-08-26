@@ -13,6 +13,10 @@ export type KeyRecord = {
   doorIds: string[];
   unlockWindowStart: number;
   unlocksInWindow: number;
+  label?: string;
+  note?: string | null;
+  inviterName?: string | null;
+  wrappedSecret?: string;
 };
 
 export type OwnerRecord = {

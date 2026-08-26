@@ -4,6 +4,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { color } from '@/lib/theme';
 
+const HERO_H = 200;
+
 type BuildingHeroProps = {
   uri?: string;
 };
@@ -19,21 +21,20 @@ export function BuildingHero({ uri }: BuildingHeroProps) {
         source={{ uri }}
         style={styles.image}
         contentFit="cover"
-        contentPosition="top"
-        cachePolicy="disk"
-        priority="low"
-        transition={500}
+        contentPosition="center"
+        cachePolicy="memory-disk"
+        priority="high"
+        transition={200}
         recyclingKey={uri}
         accessibilityLabel="Building"
       />
       <LinearGradient
         colors={[
-          'rgba(14, 14, 13, 0.5)',
-          'rgba(14, 14, 13, 0.22)',
-          'rgba(14, 14, 13, 0.88)',
+          'rgba(14, 14, 13, 0.08)',
+          'rgba(14, 14, 13, 0.2)',
           color.canvas,
         ]}
-        locations={[0, 0.28, 0.52, 0.74]}
+        locations={[0, 0.58, 1]}
         style={styles.gradient}
       />
     </View>
@@ -46,7 +47,8 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   image: {
-    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: HERO_H,
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,

@@ -4,7 +4,7 @@ const fallback: BuildingConfig = {
   id: 'default',
   match: {},
   hero: {
-    uri: 'https://bmx.fldr.zip/buildings/default.jpg',
+    uri: 'https://bmx.fldr.zip/buildings/default.jpg?v=2',
   },
   groups: [
     {

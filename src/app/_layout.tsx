@@ -3,12 +3,14 @@ import '@/lib/ignore-extension-noise';
 import { Fraunces_600SemiBold, useFonts } from '@expo-google-fonts/fraunces';
 import { Outfit_400Regular } from '@expo-google-fonts/outfit';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import { Stack as JsStack } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnalyticsProvider } from '@/lib/analytics-provider';
+import { slideInOut } from '@/lib/screen-slide';
 import { SessionProvider } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
@@ -41,16 +43,40 @@ export default function RootLayout() {
       <SessionProvider>
         <AnalyticsProvider>
           <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: color.canvas },
-              animation: 'fade',
-            }}
-          />
+          <View style={styles.page}>
+            <View style={styles.frame}>
+              <AppStack />
+            </View>
+          </View>
         </AnalyticsProvider>
       </SessionProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function AppStack() {
+  if (Platform.OS === 'web') {
+    return (
+      <JsStack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+          cardStyle: { backgroundColor: color.canvas, flex: 1 },
+          ...slideInOut,
+        }}
+      />
+    );
+  }
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: color.canvas },
+        animation: 'slide_from_right',
+      }}
+    />
   );
 }
 
@@ -58,6 +84,16 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: color.canvas,
+  },
+  page: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  frame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 430,
+    overflow: 'hidden',
   },
   errorScreen: {
     flex: 1,

@@ -29,12 +29,11 @@ const solaire: BuildingConfig = {
     "Bike Storage",
     "Pet Grooming Station",
     "Town House Trash Room",
-    // 'Terra Serena Luna #8',
   ],
   displayName: "Solaire",
   address: "299 Fremont",
   hero: {
-    uri: "https://bmx.fldr.zip/buildings/solaire.jpg",
+    uri: "https://bmx.fldr.zip/buildings/solaire.jpg?v=2",
   },
   groups: [
     {
@@ -44,7 +43,7 @@ const solaire: BuildingConfig = {
     },
     {
       id: "lobby",
-      label: "Lobby",
+      label: "Elevators",
       match: ["lobby", "1st floor"],
     },
     {

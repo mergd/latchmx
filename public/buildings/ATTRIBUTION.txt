@@ -2,6 +2,7 @@ solaire.jpg
   Solaire San Francisco
   Photo: Dead.rabbit
   License: CC BY-SA 4.0
+  Changes: cropped to a landscape hero
   https://commons.wikimedia.org/wiki/File:Solaire_San_Francisco.jpg
   https://creativecommons.org/licenses/by-sa/4.0/
 

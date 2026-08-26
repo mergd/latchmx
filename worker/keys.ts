@@ -7,8 +7,9 @@ import {
 import { asRecord } from '../src/lib/bmx-json';
 import { KEY_TTLS, type Door, type IssuedKey, type KeyTtl } from '../src/lib/types';
 
-import { randomToken, sha256Hex } from './crypto';
+import { randomToken, sha256Hex, unwrapString, wrapString } from './crypto';
 import type { Env } from './env';
+import { wrapSecret } from './env';
 import { HttpError, bearer, json } from './http';
 import { freshOwnerTokens } from './owner';
 import {
@@ -73,12 +74,14 @@ export async function handleGuestRequest(
 }
 
 async function listKeys(env: Env, accessToken: string): Promise<IssuedKey[]> {
-  const ownerId = await ownerId(env, accessToken);
-  const ids = await listOwnerKeyIds(env, ownerId);
+  const ownerIdValue = await ownerId(env, accessToken);
+  const ids = await listOwnerKeyIds(env, ownerIdValue);
   const records = await Promise.all(ids.map((id) => getKey(env, id)));
-  return records
-    .filter((record): record is KeyRecord => record !== null && !record.revoked)
-    .map(toIssued);
+  return Promise.all(
+    records
+      .filter((record): record is KeyRecord => record !== null && !record.revoked)
+      .map(async (record) => toIssued(record, await urlForRecord(env, record))),
+  );
 }
 
 async function createKey(
@@ -94,6 +97,9 @@ async function createKey(
     throw new HttpError(400, 'Missing refresh token.');
   }
   const doorIds = parseDoorIds(body?.doorIds);
+  const label = parseText(body?.label, 60) ?? 'Guest invite';
+  const note = parseText(body?.note, 240);
+  const inviterName = parseText(body?.inviterName, 80);
   const client = createDirectBmxClient(accessToken, { baseUrl: env.BMX_API_ORIGIN });
   const ownerIdValue = await ownerIdFromClient(client);
   const live = (await listKeys(env, accessToken)).filter(
@@ -111,6 +117,7 @@ async function createKey(
 
   const id = randomToken(8);
   const secret = randomToken(24);
+  const url = `${PUBLIC_ORIGIN}/k/${secret}`;
   const now = Date.now();
   const record: KeyRecord = {
     id,
@@ -121,12 +128,16 @@ async function createKey(
     doorIds,
     unlockWindowStart: now,
     unlocksInWindow: 0,
+    label,
+    note,
+    inviterName,
+    wrappedSecret: await wrapString(wrapSecret(env), secret),
   };
   await putKey(env, record, await sha256Hex(secret));
   await addOwnerKeyId(env, ownerIdValue, id);
   return {
-    ...toIssued(record),
-    url: `${PUBLIC_ORIGIN}/k/${secret}`,
+    ...toIssued(record, url),
+    url,
   };
 }
 
@@ -157,6 +168,9 @@ async function guestSession(env: Env, secret: string) {
     doors,
     buildingName: doors[0]?.buildingName ?? snapshot.doors[0]?.buildingName ?? 'Latch',
     expiresAt: record.expiresAt,
+    label: record.label ?? 'Guest invite',
+    note: record.note ?? null,
+    inviterName: record.inviterName ?? null,
   };
 }
 
@@ -239,6 +253,14 @@ function parseDoorIds(value: unknown): string[] {
   return [...new Set(ids)].slice(0, 80);
 }
 
+function parseText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const text = value.trim();
+  return text.length > 0 ? text.slice(0, maxLength) : null;
+}
+
 function filterDoors(doors: Door[], doorIds: string[]): Door[] {
   if (doorIds.length === 0) {
     return doors;
@@ -247,12 +269,28 @@ function filterDoors(doors: Door[], doorIds: string[]): Door[] {
   return doors.filter((door) => allowed.has(door.id));
 }
 
-function toIssued(record: KeyRecord): IssuedKey {
+async function urlForRecord(env: Env, record: KeyRecord): Promise<string | null> {
+  if (record.wrappedSecret === undefined) {
+    return null;
+  }
+  try {
+    const secret = await unwrapString(wrapSecret(env), record.wrappedSecret);
+    return `${PUBLIC_ORIGIN}/k/${secret}`;
+  } catch {
+    return null;
+  }
+}
+
+function toIssued(record: KeyRecord, url: string | null): IssuedKey {
   return {
     id: record.id,
     expiresAt: record.expiresAt,
     createdAt: record.createdAt,
     revoked: record.revoked,
     doorCount: record.doorIds.length,
+    label: record.label ?? 'Guest invite',
+    note: record.note ?? null,
+    inviterName: record.inviterName ?? null,
+    url,
   };
 }

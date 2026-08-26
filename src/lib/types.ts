@@ -27,16 +27,27 @@ export type IssuedKey = {
   createdAt: number;
   revoked: boolean;
   doorCount: number;
+  label: string;
+  note: string | null;
+  inviterName: string | null;
+  url: string | null;
 };
 
 export type CreatedKey = IssuedKey & {
   url: string;
 };
 
+export type GuestInvite = {
+  label: string;
+  note: string | null;
+  inviterName: string | null;
+};
+
 export type GuestSession = {
   doors: Door[];
   buildingName: string;
   expiresAt: number;
+  invite: GuestInvite;
 };
 
 export type AuthTokens = {

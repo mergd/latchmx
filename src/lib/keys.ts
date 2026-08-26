@@ -15,6 +15,9 @@ export async function createKey(input: {
   refreshToken: string;
   ttl: KeyTtl;
   doorIds: string[];
+  label: string;
+  note: string;
+  inviterName: string;
 }): Promise<CreatedKey> {
   const payload = await keysRequest('/api/keys', {
     method: 'POST',
@@ -23,6 +26,9 @@ export async function createKey(input: {
       refreshToken: input.refreshToken,
       ttl: input.ttl,
       doorIds: input.doorIds,
+      label: input.label,
+      note: input.note,
+      inviterName: input.inviterName,
     },
   });
   const created = parseCreated(payload);
@@ -73,6 +79,15 @@ export async function fetchGuestSession(secret: string): Promise<GuestSession> {
     doors: record.doors as Door[],
     buildingName: record.buildingName,
     expiresAt: record.expiresAt,
+    invite: {
+      label:
+        typeof record.label === 'string' && record.label.length > 0
+          ? record.label
+          : 'Guest invite',
+      note: typeof record.note === 'string' ? record.note : null,
+      inviterName:
+        typeof record.inviterName === 'string' ? record.inviterName : null,
+    },
   };
 }
 
@@ -154,7 +169,8 @@ function parseIssued(value: unknown): IssuedKey | null {
     typeof record.expiresAt !== 'number' ||
     typeof record.createdAt !== 'number' ||
     typeof record.revoked !== 'boolean' ||
-    typeof record.doorCount !== 'number'
+    typeof record.doorCount !== 'number' ||
+    typeof record.label !== 'string'
   ) {
     return null;
   }
@@ -164,5 +180,10 @@ function parseIssued(value: unknown): IssuedKey | null {
     createdAt: record.createdAt,
     revoked: record.revoked,
     doorCount: record.doorCount,
+    label: record.label,
+    note: typeof record.note === 'string' ? record.note : null,
+    inviterName:
+      typeof record.inviterName === 'string' ? record.inviterName : null,
+    url: typeof record.url === 'string' ? record.url : null,
   };
 }

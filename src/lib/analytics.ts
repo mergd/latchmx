@@ -2,12 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import PostHog from 'posthog-react-native';
 import { Platform } from 'react-native';
 
+import { build, buildStamp } from '@/lib/build';
+
 const TOKEN = process.env.EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN ?? '';
 const HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://e.fldr.zip';
 
 const SUPER = {
   product: 'latch',
   surface: Platform.OS === 'web' ? 'web' : Platform.OS,
+  build: buildStamp(),
+  version: build.version,
+  ...(build.native !== null && build.native.length > 0
+    ? { native_build: build.native }
+    : {}),
 };
 
 let client: PostHog | null = null;

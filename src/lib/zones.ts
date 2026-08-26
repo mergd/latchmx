@@ -6,7 +6,6 @@ import {
   type BuildingConfig,
   type DoorGroupConfig,
 } from '@/config/buildings';
-import { insertBefore } from '@/lib/drag';
 import type { Door } from '@/lib/types';
 
 export type DoorGroup = {
@@ -272,6 +271,22 @@ function mergeOrder(preferred: string[], available: string[]): string[] {
   const head = preferred.filter((id) => present.has(id));
   const seen = new Set(head);
   return [...head, ...available.filter((id) => !seen.has(id))];
+}
+
+function insertBefore(
+  ids: string[],
+  draggedId: string,
+  beforeId: string | null,
+): string[] {
+  const without = ids.filter((id) => id !== draggedId);
+  if (beforeId === null) {
+    return [...without, draggedId];
+  }
+  const index = without.indexOf(beforeId);
+  if (index < 0) {
+    return [...without, draggedId];
+  }
+  return [...without.slice(0, index), draggedId, ...without.slice(index)];
 }
 
 function isConfigHidden(door: Door): boolean {
