@@ -9,6 +9,10 @@ export function PageTitle({ title }: { title: string }) {
     }
   }, [title]);
 
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
   return (
     <Head>
       <title>{title}</title>

@@ -59,19 +59,18 @@ function untilLabel(expiresAt: number, now: number): string {
   return `Until ${day}, ${time}`;
 }
 
-function remainingLabel(left: number): string {
-  if (left < 60_000) {
-    return `${Math.max(1, Math.ceil(left / 1000))}s left`;
+export function approxRemaining(left: number): string {
+  if (left <= 0) {
+    return 'Expired';
   }
   if (left < 60 * 60_000) {
-    return `${Math.ceil(left / 60_000)}m left`;
+    return `~${Math.max(1, Math.round(left / 60_000))}m`;
   }
-  const hours = Math.floor(left / 3_600_000);
-  const minutes = Math.ceil((left % 3_600_000) / 60_000);
-  if (minutes === 60) {
-    return `${hours + 1}h left`;
-  }
-  return minutes > 0 ? `${hours}h ${minutes}m left` : `${hours}h left`;
+  return `~${Math.max(1, Math.floor(left / 3_600_000))}h`;
+}
+
+function remainingLabel(left: number): string {
+  return `${approxRemaining(left)} left`;
 }
 
 function sameLocalDay(left: number, right: number): boolean {

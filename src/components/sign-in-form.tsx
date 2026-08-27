@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthCodeDialog } from '@/components/auth-code-dialog';
+import { AuthLoginDrawer } from '@/components/auth-login-drawer';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
@@ -10,6 +11,7 @@ export function SignInForm() {
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const web = Platform.OS === 'web';
 
   const onOpenLogin = useCallback(async () => {
     setMessage(null);
@@ -28,18 +30,22 @@ export function SignInForm() {
       setMessage(null);
       try {
         await completeSignIn(code);
+        setAwaitingCode(false);
       } catch (error) {
+        if (!web) {
+          setAwaitingCode(false);
+        }
         setMessage(error instanceof Error ? error.message : 'Sign-in failed.');
       } finally {
         setBusy(false);
       }
     },
-    [completeSignIn],
+    [completeSignIn, web],
   );
 
   return (
     <View style={styles.wrap}>
-      {message !== null && !awaitingCode ? (
+      {message !== null && (!awaitingCode || !web) ? (
         <Text style={styles.error}>{message}</Text>
       ) : null}
       {!canSignIn ? (
@@ -58,22 +64,39 @@ export function SignInForm() {
           setMessage(null);
           setAwaitingCode(true);
         }}
-        disabled={!canSignIn}
+        disabled={!canSignIn || busy}
       >
-        <Text style={styles.primaryLabel}>Sign in</Text>
+        <Text style={styles.primaryLabel}>{busy ? 'Signing in' : 'Sign in'}</Text>
       </Pressable>
-      <AuthCodeDialog
-        visible={awaitingCode}
-        busy={busy}
-        error={message}
-        signInUrl={signInUrl}
-        onOpenLogin={onOpenLogin}
-        onCancel={() => {
-          setAwaitingCode(false);
-          setMessage(null);
-        }}
-        onInstall={onInstall}
-      />
+      {web ? (
+        <AuthCodeDialog
+          visible={awaitingCode}
+          busy={busy}
+          error={message}
+          onOpenLogin={onOpenLogin}
+          onCancel={() => {
+            setAwaitingCode(false);
+            setMessage(null);
+          }}
+          onInstall={onInstall}
+        />
+      ) : (
+        <AuthLoginDrawer
+          visible={awaitingCode}
+          busy={busy}
+          url={signInUrl}
+          onClose={() => {
+            if (busy) {
+              return;
+            }
+            setAwaitingCode(false);
+            setMessage(null);
+          }}
+          onCapturedCode={(code) => {
+            void onInstall(code);
+          }}
+        />
+      )}
     </View>
   );
 }

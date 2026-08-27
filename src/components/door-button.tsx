@@ -4,6 +4,8 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
+import { LockSimpleOpenIcon } from 'phosphor-react-native';
+
 import { ArrangeHandle } from '@/components/arrange-handle';
 import { HoursDialog } from '@/components/hours-dialog';
 import { TimerCircle } from '@/components/timer-circle';
@@ -50,7 +52,10 @@ export function DoorRow({
     door.timeZone ?? 'America/Los_Angeles',
     door.lockout ? 'lockout' : 'held_open',
   );
-  const hoursHint = statusHours?.hint ?? null;
+  const hoursHint =
+    statusHours?.hint !== undefined && statusHours.hint.length > 0
+      ? statusHours.hint
+      : null;
   const propped =
     !revealing &&
     !closed &&
@@ -182,7 +187,18 @@ export function DoorRow({
       {timedOpen && !revealing ? (
         <TimerCircle progress={remaining / DOOR_OPEN_MS} />
       ) : propped ? (
-        <Text style={styles.open}>Open</Text>
+        <Pressable
+          accessibilityRole="image"
+          accessibilityLabel="Open"
+          disabled={door.hours.length === 0}
+          onPress={showHours}
+          style={({ pressed }) => [
+            styles.lockHit,
+            pressed && door.hours.length > 0 ? styles.hoursPressed : null,
+          ]}
+        >
+          <LockSimpleOpenIcon color={color.muted} size={18} weight="regular" />
+        </Pressable>
       ) : closed ? (
         <Text style={styles.open}>Closed</Text>
       ) : null}
@@ -343,6 +359,11 @@ const styles = StyleSheet.create({
   },
   rowHidden: {
     opacity: 0.72,
+  },
+  lockHit: {
+    paddingHorizontal: 2,
+    paddingVertical: 8,
+    cursor: 'pointer',
   },
   open: {
     color: color.muted,

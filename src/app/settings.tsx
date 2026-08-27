@@ -93,11 +93,11 @@ export default function SettingsScreen() {
               router.push('/keys');
             }}
           />
-        ) : (
+        ) : mode === 'signed_out' ? (
           <View style={styles.form}>
             <SignInForm />
           </View>
-        )}
+        ) : null}
         <SettingsRow
           label="Send feedback"
           onPress={() => {

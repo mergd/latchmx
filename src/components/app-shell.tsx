@@ -12,7 +12,11 @@ type AppShellProps = {
 export function AppShell({ children, background }: AppShellProps) {
   return (
     <View style={styles.page}>
-      {background}
+      {background != null ? (
+        <View style={styles.background} collapsable={false}>
+          {background}
+        </View>
+      ) : null}
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {children}
       </SafeAreaView>
@@ -25,7 +29,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: color.canvas,
   },
+  background: {
+    ...StyleSheet.absoluteFillObject,
+    pointerEvents: 'none',
+  },
   safe: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
 });

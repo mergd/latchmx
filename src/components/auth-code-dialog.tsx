@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AuthLoginDrawer } from '@/components/auth-login-drawer';
 import {
   AUTHORIZATION_CODE_EXAMPLE,
   extractAuthorizationCode,
@@ -25,7 +24,6 @@ type AuthCodeDialogProps = {
   visible: boolean;
   busy: boolean;
   error: string | null;
-  signInUrl: string;
   onOpenLogin: () => Promise<void>;
   onCancel: () => void;
   onInstall: (code: string) => Promise<void>;
@@ -35,7 +33,6 @@ export function AuthCodeDialog({
   visible,
   busy,
   error,
-  signInUrl,
   onOpenLogin,
   onCancel,
   onInstall,
@@ -43,14 +40,12 @@ export function AuthCodeDialog({
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [step, setStep] = useState<Step>('instruct');
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [code, setCode] = useState('');
   const [keyboardInset, setKeyboardInset] = useState(0);
 
   useEffect(() => {
     if (!visible) {
       setStep('instruct');
-      setDrawerOpen(false);
       setCode('');
       setKeyboardInset(0);
       return;
@@ -70,7 +65,7 @@ export function AuthCodeDialog({
   }, [visible]);
 
   useEffect(() => {
-    if (!visible || drawerOpen || step !== 'paste') {
+    if (!visible || step !== 'paste') {
       return;
     }
     const id = requestAnimationFrame(() => {
@@ -79,15 +74,11 @@ export function AuthCodeDialog({
     return () => {
       cancelAnimationFrame(id);
     };
-  }, [drawerOpen, step, visible]);
+  }, [step, visible]);
 
   const goToPortal = async () => {
     setStep('paste');
-    if (Platform.OS === 'web' || signInUrl.length === 0) {
-      await onOpenLogin();
-      return;
-    }
-    setDrawerOpen(true);
+    await onOpenLogin();
   };
 
   const submit = (raw: string = code) => {
@@ -116,55 +107,41 @@ export function AuthCodeDialog({
   const centered = Platform.OS === 'web' && keyboardInset === 0;
 
   return (
-    <>
-      <Modal
-        visible={visible && !drawerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={busy ? undefined : onCancel}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={busy ? undefined : onCancel}
+    >
+      <View
+        style={[
+          styles.backdrop,
+          centered ? styles.backdropCenter : styles.backdropSheet,
+          { paddingBottom: centered ? 28 : lift + 12 },
+        ]}
       >
-        <View
-          style={[
-            styles.backdrop,
-            centered ? styles.backdropCenter : styles.backdropSheet,
-            { paddingBottom: centered ? 28 : lift + 12 },
-          ]}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={busy ? undefined : onCancel}
-          />
-          <View style={styles.card}>
-            {renderStep(step, {
-              busy,
-              code,
-              error,
-              onCancel,
-              onChangeCode,
-              onGoToPortal: () => {
-                void goToPortal();
-              },
-              onSubmit: () => {
-                submit();
-              },
-              inputRef,
-            })}
-          </View>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={busy ? undefined : onCancel}
+        />
+        <View style={styles.card}>
+          {renderStep(step, {
+            busy,
+            code,
+            error,
+            onCancel,
+            onChangeCode,
+            onGoToPortal: () => {
+              void goToPortal();
+            },
+            onSubmit: () => {
+              submit();
+            },
+            inputRef,
+          })}
         </View>
-      </Modal>
-      <AuthLoginDrawer
-        visible={visible && drawerOpen}
-        url={signInUrl}
-        onClose={() => {
-          setDrawerOpen(false);
-        }}
-        onCapturedCode={(nextCode) => {
-          setCode(nextCode);
-          setDrawerOpen(false);
-          void onInstall(nextCode);
-        }}
-      />
-    </>
+      </View>
+    </Modal>
   );
 }
 

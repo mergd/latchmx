@@ -1,8 +1,7 @@
-import { Image } from 'expo-image';
 import { router, usePathname } from 'expo-router';
 import { ArrowCounterClockwiseIcon, GearSixIcon, KeyIcon, ListIcon } from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -25,6 +24,7 @@ import { HomeSkeleton } from '@/components/skeleton';
 import { SignInForm } from '@/components/sign-in-form';
 import { StickyBuildingHeader } from '@/components/sticky-building-header';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
+import { approxRemaining } from '@/lib/expiry';
 import { useSession } from '@/lib/session';
 import { latchTitle } from '@/lib/title';
 import { color, groupInk, type } from '@/lib/theme';
@@ -70,7 +70,7 @@ export default function BuildingScreen() {
           <Image
             source={loginVisual}
             style={styles.loginVisual}
-            contentFit="cover"
+            resizeMode="cover"
             accessibilityLabel="Latch mark"
           />
         }
@@ -375,18 +375,7 @@ function guestKicker(expiresAt: number | null, now: number): string {
   if (left <= 0) {
     return 'This key expired';
   }
-  if (left < 60_000) {
-    return `Expires in ${Math.max(1, Math.ceil(left / 1000))}s`;
-  }
-  if (left < 60 * 60_000) {
-    return `Expires in ${Math.ceil(left / 60_000)}m`;
-  }
-  const hours = Math.floor(left / 3_600_000);
-  const minutes = Math.ceil((left % 3_600_000) / 60_000);
-  if (minutes === 60) {
-    return `Expires in ${hours + 1}h`;
-  }
-  return minutes > 0 ? `Expires in ${hours}h ${minutes}m` : `Expires in ${hours}h`;
+  return approxRemaining(left);
 }
 
 function BuildingActions({
@@ -438,6 +427,8 @@ function BuildingActions({
 const styles = StyleSheet.create({
   loginVisual: {
     ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   loginDock: {
     marginTop: 'auto',

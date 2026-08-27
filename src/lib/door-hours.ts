@@ -67,15 +67,20 @@ export function hoursStatus(
   if (windows.length === 0) {
     return null;
   }
-  const verb = kind === 'lockout' ? 'Opens' : 'Unlocks';
   const now = zonedClock(at, timeZone);
   if (now === null) {
+    if (kind === 'held_open') {
+      return { unlocked: false, hint: '' };
+    }
     const label = hoursLabel(windows);
     return label === null ? null : { unlocked: false, hint: label };
   }
   const current = currentWindow(windows, now.weekday, now.minutes);
   if (current !== null) {
-    return { unlocked: true, hint: `Until ${formatClock(current.to)}` };
+    return { unlocked: true, hint: '' };
+  }
+  if (kind === 'held_open') {
+    return { unlocked: false, hint: '' };
   }
   const next = nextOpen(windows, now.weekday, now.minutes);
   if (next === null) {
@@ -83,15 +88,15 @@ export function hoursStatus(
     return label === null ? null : { unlocked: false, hint: label };
   }
   if (next.weekday === now.weekday) {
-    return { unlocked: false, hint: `${verb} ${formatClock(next.from)}` };
+    return { unlocked: false, hint: `Opens ${formatClock(next.from)}` };
   }
   const tomorrow = WEEKDAYS[(WEEKDAYS.indexOf(now.weekday) + 1) % 7];
   if (next.weekday === tomorrow) {
-    return { unlocked: false, hint: `${verb} ${formatClock(next.from)}` };
+    return { unlocked: false, hint: `Opens ${formatClock(next.from)}` };
   }
   return {
     unlocked: false,
-    hint: `${verb} ${DAY_LABEL[next.weekday]} ${formatClock(next.from)}`,
+    hint: `Opens ${DAY_LABEL[next.weekday]} ${formatClock(next.from)}`,
   };
 }
 

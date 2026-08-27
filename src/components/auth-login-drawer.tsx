@@ -11,6 +11,7 @@ import { color, type } from '@/lib/theme';
 type AuthLoginDrawerProps = {
   visible: boolean;
   url: string;
+  busy?: boolean;
   onClose: () => void;
   onCapturedCode: (code: string) => void;
 };
@@ -23,6 +24,7 @@ const safariMobileUa =
 export function AuthLoginDrawer({
   visible,
   url,
+  busy = false,
   onClose,
   onCapturedCode,
 }: AuthLoginDrawerProps) {
@@ -66,10 +68,10 @@ export function AuthLoginDrawer({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={busy ? undefined : onClose}
     >
       <View style={styles.root}>
-        <Pressable style={styles.scrim} onPress={onClose} />
+        <Pressable style={styles.scrim} onPress={busy ? undefined : onClose} />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
@@ -77,7 +79,8 @@ export function AuthLoginDrawer({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close login"
-              onPress={onClose}
+              onPress={busy ? undefined : onClose}
+              disabled={busy}
               style={({ pressed }) => [styles.close, pressed ? styles.closePressed : null]}
             >
               <XIcon color={color.text} size={18} weight="bold" />
@@ -104,7 +107,7 @@ export function AuthLoginDrawer({
                 setSupportMultipleWindows={false}
               />
             ) : null}
-            {loading ? (
+            {loading || busy ? (
               <View style={styles.loading} pointerEvents="none">
                 <FlapLoader size={48} />
               </View>
