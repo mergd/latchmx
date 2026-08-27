@@ -1,5 +1,5 @@
 import { Picker } from "@react-native-picker/picker";
-import { ChevronDown } from "lucide-react-native";
+import { CaretDownIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import {
   ActionSheetIOS,
@@ -249,7 +249,7 @@ function DurationField({
           <Text style={styles.dropdownLabel}>How long</Text>
           <Text style={styles.dropdownValue}>{selected.label}</Text>
         </View>
-        <ChevronDown color={color.muted} size={18} strokeWidth={1.75} />
+        <CaretDownIcon color={color.muted} size={18} weight="bold" />
       </Pressable>
     );
   }
@@ -302,7 +302,7 @@ function DurationField({
           <Text style={styles.dropdownLabel}>How long</Text>
           <Text style={styles.dropdownValue}>{selected.label}</Text>
         </View>
-        <ChevronDown color={color.muted} size={18} strokeWidth={1.75} />
+        <CaretDownIcon color={color.muted} size={18} weight="bold" />
       </Pressable>
       {open ? (
         <View style={styles.menu}>

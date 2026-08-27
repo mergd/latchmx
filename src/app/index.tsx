@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, usePathname } from 'expo-router';
-import { KeyRound, List, RotateCcw, Settings } from 'lucide-react-native';
+import { ArrowCounterClockwiseIcon, GearSixIcon, KeyIcon, ListIcon } from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -20,11 +20,13 @@ import { DoorList } from '@/components/door-list';
 import { GuestBanner } from '@/components/guest-banner';
 import { GuestWelcome } from '@/components/guest-welcome';
 import { IconButton } from '@/components/icon-button';
+import { PageTitle } from '@/components/page-title';
 import { HomeSkeleton } from '@/components/skeleton';
 import { SignInForm } from '@/components/sign-in-form';
 import { StickyBuildingHeader } from '@/components/sticky-building-header';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
 import { useSession } from '@/lib/session';
+import { latchTitle } from '@/lib/title';
 import { color, groupInk, type } from '@/lib/theme';
 import {
   differsFromBaseLayout,
@@ -55,6 +57,7 @@ export default function BuildingScreen() {
   if (mode === 'loading') {
     return (
       <AppShell>
+        <PageTitle title={latchTitle()} />
         <HomeSkeleton />
       </AppShell>
     );
@@ -72,6 +75,7 @@ export default function BuildingScreen() {
           />
         }
       >
+        <PageTitle title={latchTitle('Sign in')} />
         <View style={styles.loginDock}>
           {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
           <SignInForm />
@@ -213,6 +217,7 @@ function SignedInHome() {
 
   return (
     <AppShell>
+      <PageTitle title={latchTitle(title)} />
       <Sortable.PortalProvider enabled={arranging}>
         <View style={styles.screen}>
             <Animated.ScrollView
@@ -400,11 +405,11 @@ function BuildingActions({
   return (
     <View style={styles.toolbar}>
       {guest ? null : arranging && canReset ? (
-        <IconButton icon={RotateCcw} label="Reset order" onPress={onReset} />
+        <IconButton icon={ArrowCounterClockwiseIcon} label="Reset order" onPress={onReset} />
       ) : null}
       {guest ? null : (
         <IconButton
-          icon={List}
+          icon={ListIcon}
           label={arranging ? 'Done arranging' : 'Arrange sections'}
           active={arranging}
           onPress={onToggleArrange}
@@ -412,7 +417,7 @@ function BuildingActions({
       )}
       {guest ? null : (
         <IconButton
-          icon={KeyRound}
+          icon={KeyIcon}
           label="Keys"
           onPress={() => {
             router.push('/keys');
@@ -420,7 +425,7 @@ function BuildingActions({
         />
       )}
       <IconButton
-        icon={Settings}
+        icon={GearSixIcon}
         label="Settings"
         onPress={() => {
           router.push('/settings');

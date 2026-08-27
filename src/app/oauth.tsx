@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FlapLoader } from '@/components/flap-loader';
+import { PageTitle } from '@/components/page-title';
+import { StatusScreen } from '@/components/status-screen';
 import { useSession } from '@/lib/session';
+import { latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function OAuthRedirect() {
@@ -46,23 +49,30 @@ export default function OAuthRedirect() {
     return <Redirect href="/" />;
   }
 
+  if (status === 'error') {
+    return (
+      <View style={styles.screen}>
+        <StatusScreen title="Could not connect" body={message}>
+          <Pressable
+            onPress={() => {
+              setStatus('done');
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.link}>Back to Latch</Text>
+          </Pressable>
+        </StatusScreen>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
-      {status !== 'error' ? <FlapLoader size={64} /> : null}
-      <Text style={styles.title}>
-        {status === 'error' ? 'Could not connect' : 'Connecting…'}
-      </Text>
-      {message !== null ? <Text style={styles.body}>{message}</Text> : null}
-      {status === 'error' ? (
-        <Pressable
-          onPress={() => {
-            setStatus('done');
-          }}
-          hitSlop={8}
-        >
-          <Text style={styles.link}>Back to Latch</Text>
-        </Pressable>
-      ) : null}
+      <PageTitle title={latchTitle('Connecting')} />
+      <View style={styles.wait}>
+        <FlapLoader size={64} />
+        <Text style={styles.waitTitle}>Connecting…</Text>
+      </View>
     </View>
   );
 }
@@ -71,22 +81,21 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: color.canvas,
+  },
+  wait: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
     gap: 12,
   },
-  title: {
+  waitTitle: {
     color: color.text,
     fontFamily: type.title,
     fontSize: 28,
   },
-  body: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 15,
-    lineHeight: 22,
-  },
   link: {
+    marginTop: 4,
     color: color.accent,
     fontFamily: type.body,
     fontSize: 16,

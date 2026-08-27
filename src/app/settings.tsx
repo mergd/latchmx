@@ -1,17 +1,19 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { CaretLeftIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { IconButton } from '@/components/icon-button';
+import { PageTitle } from '@/components/page-title';
 import { SignInForm } from '@/components/sign-in-form';
 import { build, buildStamp } from '@/lib/build';
 import { openFeedback } from '@/lib/feedback';
 import { hapticSuccess } from '@/lib/haptics';
 import { useSession } from '@/lib/session';
+import { latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function SettingsScreen() {
@@ -59,11 +61,12 @@ export default function SettingsScreen() {
 
   return (
     <AppShell>
+      <PageTitle title={latchTitle('Account')} />
       <View style={styles.screen}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <IconButton
-              icon={ChevronLeft}
+              icon={CaretLeftIcon}
               label="Back"
               onPress={() => {
                 router.back();

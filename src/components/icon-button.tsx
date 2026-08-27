@@ -1,16 +1,16 @@
-import type { LucideIcon } from 'lucide-react-native';
+import type { Icon } from 'phosphor-react-native';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { color } from '@/lib/theme';
 
 type IconButtonProps = {
-  icon: LucideIcon;
+  icon: Icon;
   label: string;
   active?: boolean;
   onPress: () => void;
 };
 
-export function IconButton({ icon: Icon, label, active = false, onPress }: IconButtonProps) {
+export function IconButton({ icon: Glyph, label, active = false, onPress }: IconButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -22,7 +22,7 @@ export function IconButton({ icon: Icon, label, active = false, onPress }: IconB
         pressed ? styles.btnPressed : null,
       ]}
     >
-      <Icon color={active ? color.onAccent : color.text} size={18} strokeWidth={1.75} />
+      <Glyph color={active ? color.onAccent : color.text} size={18} weight="bold" />
     </Pressable>
   );
 }

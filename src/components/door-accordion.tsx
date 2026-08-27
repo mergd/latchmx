@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react-native';
+import { CaretDownIcon } from 'phosphor-react-native';
 import { useEffect, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -48,7 +48,7 @@ export function DoorAccordion({
           <View style={styles.meta}>
             <Text style={styles.count}>{count}</Text>
             <Animated.View style={chevronStyle}>
-              <ChevronDown color={color.muted} size={16} strokeWidth={1.75} />
+              <CaretDownIcon color={color.muted} size={16} weight="bold" />
             </Animated.View>
           </View>
         </Pressable>

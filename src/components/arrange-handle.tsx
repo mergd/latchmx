@@ -1,4 +1,4 @@
-import { GripVertical } from 'lucide-react-native';
+import { DotsSixVerticalIcon } from 'phosphor-react-native';
 import { StyleSheet } from 'react-native';
 import Sortable from 'react-native-sortables';
 
@@ -16,7 +16,7 @@ export function ArrangeHandle({ enabled, inset = false }: ArrangeHandleProps) {
 
   return (
     <Sortable.Handle style={[styles.handle, inset ? styles.handleInset : null]}>
-      <GripVertical color={color.muted} size={16} strokeWidth={2} />
+      <DotsSixVerticalIcon color={color.muted} size={16} weight="bold" />
     </Sortable.Handle>
   );
 }

@@ -1,4 +1,4 @@
-import { X } from 'lucide-react-native';
+import { XIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -80,7 +80,7 @@ export function AuthLoginDrawer({
               onPress={onClose}
               style={({ pressed }) => [styles.close, pressed ? styles.closePressed : null]}
             >
-              <X color={color.text} size={18} strokeWidth={1.75} />
+              <XIcon color={color.text} size={18} weight="bold" />
             </Pressable>
           </View>
           <View style={styles.webWrap}>

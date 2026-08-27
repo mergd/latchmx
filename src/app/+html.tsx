@@ -17,6 +17,7 @@ export default function Root({ children }: { children: ReactNode }) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
+        <title>{ogTitle}</title>
         <meta name="description" content={ogDescription} />
         <meta property="og:type" content="website" />
         <meta property="og:title" content={ogTitle} />

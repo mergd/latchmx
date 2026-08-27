@@ -6,9 +6,11 @@ import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { StatusScreen } from '@/components/status-screen';
 import { AnalyticsProvider } from '@/lib/analytics-provider';
 import { slideInOut } from '@/lib/screen-slide';
 import { SessionProvider } from '@/lib/session';
@@ -17,13 +19,19 @@ import { color, type } from '@/lib/theme';
 SplashScreen.preventAutoHideAsync();
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = 'Latch hit a snag';
+    }
+  }, []);
+
   return (
     <View style={styles.errorScreen}>
-      <Text style={styles.errorTitle}>Latch hit a snag</Text>
-      <Text style={styles.errorBody}>{error.message}</Text>
-      <Pressable onPress={retry} style={styles.retry}>
-        <Text style={styles.retryLabel}>Try again</Text>
-      </Pressable>
+      <StatusScreen title="Latch hit a snag" body={error.message} tabTitle={false}>
+        <Pressable onPress={retry} style={styles.retry}>
+          <Text style={styles.retryLabel}>Try again</Text>
+        </Pressable>
+      </StatusScreen>
     </View>
   );
 }
@@ -98,23 +106,9 @@ const styles = StyleSheet.create({
   errorScreen: {
     flex: 1,
     backgroundColor: color.canvas,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-  errorTitle: {
-    color: color.text,
-    fontFamily: type.title,
-    fontSize: 28,
-  },
-  errorBody: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 15,
-    lineHeight: 22,
   },
   retry: {
-    alignSelf: 'flex-start',
+    marginTop: 6,
     backgroundColor: color.accent,
     borderRadius: 14,
     paddingHorizontal: 16,
