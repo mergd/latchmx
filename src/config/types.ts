@@ -12,8 +12,10 @@ export type BuildingConfig = {
   };
   hide?: string[];
   show?: string[];
+  lockout?: string[];
   displayName?: string;
   address?: string;
+  mapsQuery?: string;
   hero?: {
     uri: string;
   };

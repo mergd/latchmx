@@ -7,7 +7,9 @@ import {
 } from '@mergd/butterflymx';
 
 import { asRecord, errorMessage, type JsonRecord } from './bmx-json';
-import type { Account, BmxEnv, Door } from './types';
+import { isWithinHours, parseHoursList } from './door-hours';
+import type { AccountProfile, BmxEnv, Door } from './types';
+import { isLockoutDoor } from './zones';
 
 export function createDirectBmxClient(
   accessToken: string,
@@ -24,7 +26,7 @@ export function createDirectBmxClient(
 
 export async function loadDoors(client: ButterflyMxClient): Promise<{
   doors: Door[];
-  account: Account | null;
+  account: AccountProfile | null;
 }> {
   try {
     const [tenants, buildings, extraPointsRaw, extraDevicesRaw] = await Promise.all([
@@ -55,6 +57,13 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
         tenantByBuilding.set(tenant.building_id, tenant.id);
       }
     }
+    const timeZoneByBuilding = new Map<number, string>();
+    for (const building of buildings) {
+      const zone = timeZoneFromRecord(asRecord(building));
+      if (zone !== null) {
+        timeZoneByBuilding.set(building.id, zone);
+      }
+    }
 
     const buildingIds = [...new Set(tenants.map((tenant) => tenant.building_id))];
     const doorGroups = await Promise.all(
@@ -68,6 +77,8 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
           client.devices.list({ buildingId, per: 250 }),
         ]);
         const buildingName = buildingNames.get(buildingId) ?? 'Building';
+        const timeZone =
+          timeZoneByBuilding.get(buildingId) ?? 'America/Los_Angeles';
         const points = uniqueById([
           ...accessPoints,
           ...extraPoints.filter((point) => point.building_id === buildingId),
@@ -90,6 +101,10 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
             buildingName,
             tenantId,
             heldOpen: record !== null && isOpenRecord(record),
+            disabled: record !== null && isDisabledRecord(record),
+            lockout: false,
+            hours: hoursFromRecord(record),
+            timeZone,
           }];
         });
         const fromDevices: Door[] = hardware.flatMap((device) => {
@@ -106,9 +121,16 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
             buildingName,
             tenantId,
             heldOpen: record !== null && isOpenRecord(record),
+            disabled: record !== null && isDisabledRecord(record),
+            lockout: false,
+            hours: hoursFromRecord(record),
+            timeZone,
           }];
         });
-        return [...fromPoints, ...fromDevices];
+        return [
+          ...(await attachSchedules(client, fromPoints)),
+          ...fromDevices,
+        ].map(applyLockout);
       }),
     );
 
@@ -191,13 +213,96 @@ function uniqueById<T extends { id: number }>(items: T[]): T[] {
 }
 
 function isHiddenRecord(record: JsonRecord): boolean {
-  if (flagTrue(record.hidden) || flagTrue(record.is_hidden) || flagTrue(record.disabled)) {
+  if (flagTrue(record.hidden) || flagTrue(record.is_hidden)) {
     return true;
   }
-  if (record.visible === false || record.enabled === false || record.active === false) {
+  return record.visible === false;
+}
+
+function isDisabledRecord(record: JsonRecord): boolean {
+  if (flagTrue(record.disabled) || flagTrue(record.closed)) {
     return true;
+  }
+  if (
+    record.enabled === false ||
+    record.active === false ||
+    record.available === false
+  ) {
+    return true;
+  }
+  if (typeof record.status === 'string') {
+    const status = record.status.toLowerCase();
+    return (
+      status === 'disabled' ||
+      status === 'closed' ||
+      status === 'unavailable'
+    );
   }
   return false;
+}
+
+function hoursFromRecord(record: JsonRecord | null): Door['hours'] {
+  if (record === null) {
+    return [];
+  }
+  return parseHoursList(
+    record.open_hours ?? record.schedules ?? record.hours,
+  );
+}
+
+async function attachSchedules(
+  client: ButterflyMxClient,
+  doors: Door[],
+): Promise<Door[]> {
+  const need = doors.filter(
+    (door) => door.kind === 'access_point' && door.hours.length === 0,
+  );
+  if (need.length === 0) {
+    return doors;
+  }
+  const fetched = await Promise.all(
+    need.map(async (door) => {
+      const rows = await listOrEmpty<unknown>(
+        client,
+        `/v4/access_points/${door.remoteId}/schedules`,
+      );
+      return [door.id, parseHoursList(rows)] as const;
+    }),
+  );
+  const byId = new Map(fetched);
+  return doors.map((door) => {
+    const hours = byId.get(door.id);
+    if (hours === undefined || hours.length === 0) {
+      return door;
+    }
+    return { ...door, hours };
+  });
+}
+
+function applyLockout(door: Door): Door {
+  const lockout = isLockoutDoor(door);
+  const outside =
+    lockout &&
+    door.hours.length > 0 &&
+    !isWithinHours(door.hours, Date.now(), door.timeZone);
+  return {
+    ...door,
+    lockout,
+    disabled: door.disabled || outside,
+  };
+}
+
+function timeZoneFromRecord(record: JsonRecord | null): string | null {
+  if (record === null) {
+    return null;
+  }
+  for (const key of ['time_zone', 'timezone', 'timeZone', 'tz'] as const) {
+    const value = record[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
 }
 
 function isOpenRecord(record: JsonRecord): boolean {
@@ -229,7 +334,7 @@ function flagTrue(value: unknown): boolean {
   return value === true || value === 1 || value === 'true';
 }
 
-function accountFromTenants(tenants: ButterflyMxTenant[]): Account | null {
+function accountFromTenants(tenants: ButterflyMxTenant[]): AccountProfile | null {
   const tenant =
     tenants.find((item) => typeof item.email === 'string' && item.email.length > 0) ??
     tenants[0];

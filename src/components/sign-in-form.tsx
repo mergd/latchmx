@@ -6,7 +6,7 @@ import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export function SignInForm() {
-  const { openSignIn, completeSignIn, canSignIn } = useSession();
+  const { openSignIn, signInUrl, completeSignIn, canSignIn } = useSession();
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -48,6 +48,8 @@ export function SignInForm() {
         </Text>
       ) : null}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign in"
         style={[styles.primary, !canSignIn ? styles.primaryDisabled : null]}
         onPress={() => {
           if (!canSignIn) {
@@ -64,6 +66,7 @@ export function SignInForm() {
         visible={awaitingCode}
         busy={busy}
         error={message}
+        signInUrl={signInUrl}
         onOpenLogin={onOpenLogin}
         onCancel={() => {
           setAwaitingCode(false);

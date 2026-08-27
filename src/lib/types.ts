@@ -1,3 +1,7 @@
+import type { DoorHoursWindow } from './door-hours';
+
+export type { DoorHoursWindow } from './door-hours';
+
 export const DOOR_OPEN_MS = 8000;
 
 export type DoorKind = 'access_point' | 'device';
@@ -11,6 +15,10 @@ export type Door = {
   buildingName: string;
   tenantId: number;
   heldOpen: boolean;
+  disabled: boolean;
+  lockout: boolean;
+  hours: DoorHoursWindow[];
+  timeZone: string;
 };
 
 export type UnlockStatus = 'idle' | 'unlocking' | 'open' | 'error';
@@ -30,6 +38,7 @@ export type IssuedKey = {
   label: string;
   note: string | null;
   inviterName: string | null;
+  contact: string | null;
   url: string | null;
 };
 
@@ -41,6 +50,7 @@ export type GuestInvite = {
   label: string;
   note: string | null;
   inviterName: string | null;
+  contact: string | null;
 };
 
 export type GuestSession = {
@@ -56,9 +66,18 @@ export type AuthTokens = {
   expiresAt: number;
 };
 
-export type Account = {
+export type AccountProfile = {
   name: string | null;
   email: string | null;
+};
+
+export type AccountKind = 'resident' | 'guest';
+
+export type Account = AccountProfile & {
+  id: string;
+  kind: AccountKind;
+  buildingName: string | null;
+  createdAt: number;
 };
 
 export type BmxEnv = 'sandbox' | 'production';

@@ -7,6 +7,7 @@
     "@expo-google-fonts/outfit": "^0.4.3",
     "@mergd/butterflymx": "^0.1.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-picker/picker": "2.11.4",
     "expo": "~57.0.13",
     "expo-application": "~57.0.2",
     "expo-auth-session": "~57.0.7",
@@ -39,6 +40,7 @@
     "react-native-sortables": "^1.10.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
@@ -48,8 +50,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "export:web": "EXPO_WEB_OUTPUT=static expo export --platform web",
     "deploy": "bun run export:web && wrangler deploy",

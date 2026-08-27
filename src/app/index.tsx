@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { KeyRound, List, RotateCcw, Settings } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -17,7 +17,10 @@ import { BuildingHero } from '@/components/building-hero';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DeadKey } from '@/components/dead-key';
 import { DoorList } from '@/components/door-list';
+import { GuestBanner } from '@/components/guest-banner';
+import { GuestWelcome } from '@/components/guest-welcome';
 import { IconButton } from '@/components/icon-button';
+import { HomeSkeleton } from '@/components/skeleton';
 import { SignInForm } from '@/components/sign-in-form';
 import { StickyBuildingHeader } from '@/components/sticky-building-header';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
@@ -33,15 +36,26 @@ import {
 import loginVisual from '../../assets/brand/login-visual.png';
 
 export default function BuildingScreen() {
-  const { mode, bootError } = useSession();
+  const { mode, bootError, guestExpiresAt } = useSession();
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    if (mode !== 'guest' || guestExpiresAt === null) {
+      return;
+    }
+    setNow(Date.now());
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [guestExpiresAt, mode]);
 
   if (mode === 'loading') {
     return (
       <AppShell>
-        <View style={styles.boot}>
-          <ActivityIndicator color={color.accent} />
-          <Text style={styles.bootLabel}>Loading your building</Text>
-        </View>
+        <HomeSkeleton />
       </AppShell>
     );
   }
@@ -66,8 +80,13 @@ export default function BuildingScreen() {
     );
   }
 
-  if (mode === 'guest' && bootError !== null) {
-    return <DeadKey message={bootError} />;
+  const clock = now === 0 ? Date.now() : now;
+  if (
+    mode === 'guest' &&
+    (bootError !== null ||
+      (guestExpiresAt !== null && clock >= guestExpiresAt))
+  ) {
+    return <DeadKey detail={bootError} />;
   }
 
   return <SignedInHome />;
@@ -94,6 +113,8 @@ function SignedInHome() {
     guestInvite,
   } = useSession();
   const guest = mode === 'guest';
+  const pathname = usePathname();
+  const guestSecret = /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
   const [now, setNow] = useState(0);
   const [arranging, setArranging] = useState(false);
   const [pendingReset, setPendingReset] = useState(false);
@@ -137,7 +158,7 @@ function SignedInHome() {
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
   const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
   const kicker = guest
-    ? guestKicker(guestExpiresAt, now)
+    ? (layout.address ?? guestKicker(guestExpiresAt, now))
     : arranging
       ? 'Drag sections to reorder'
       : (layout.address ?? '');
@@ -220,18 +241,17 @@ function SignedInHome() {
                     <Text style={styles.title} numberOfLines={1}>
                       {title}
                     </Text>
-                    {guest ? null : (
-                      <BuildingActions
-                        arranging={arranging}
-                        canReset={canReset}
-                        onToggleArrange={() => {
-                          setArranging((current) => !current);
-                        }}
-                        onReset={() => {
-                          setPendingReset(true);
-                        }}
-                      />
-                    )}
+                    <BuildingActions
+                      guest={guest}
+                      arranging={arranging}
+                      canReset={canReset}
+                      onToggleArrange={() => {
+                        setArranging((current) => !current);
+                      }}
+                      onReset={() => {
+                        setPendingReset(true);
+                      }}
+                    />
                   </View>
                   {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
                   {bootError !== null ? (
@@ -249,18 +269,11 @@ function SignedInHome() {
                   ) : null}
                 </View>
               </View>
-              {guest && guestInvite !== null ? (
-                <View style={styles.guestInvite}>
-                  <Text style={styles.guestInviteLabel}>{guestInvite.label}</Text>
-                  {guestInvite.inviterName !== null ? (
-                    <Text style={styles.guestInviteFrom}>
-                      From {guestInvite.inviterName}
-                    </Text>
-                  ) : null}
-                  {guestInvite.note !== null ? (
-                    <Text style={styles.guestInviteNote}>{guestInvite.note}</Text>
-                  ) : null}
-                </View>
+              {guest ? (
+                <GuestBanner
+                  invite={guestInvite}
+                  expiresLabel={guestKicker(guestExpiresAt, now)}
+                />
               ) : null}
               <View
                 style={styles.listMeasure}
@@ -309,20 +322,27 @@ function SignedInHome() {
               style={stickyStyle}
               interactive={chromePinned}
               actions={
-                guest ? undefined : (
-                  <BuildingActions
-                    arranging={arranging}
-                    canReset={canReset}
-                    onToggleArrange={() => {
-                      setArranging((current) => !current);
-                    }}
-                    onReset={() => {
-                      setPendingReset(true);
-                    }}
-                  />
-                )
+                <BuildingActions
+                  guest={guest}
+                  arranging={arranging}
+                  canReset={canReset}
+                  onToggleArrange={() => {
+                    setArranging((current) => !current);
+                  }}
+                  onReset={() => {
+                    setPendingReset(true);
+                  }}
+                />
               }
             />
+            {guest && guestSecret !== null && bootError === null ? (
+              <GuestWelcome
+                secret={guestSecret}
+                buildingName={title}
+                address={layout.address ?? null}
+                mapsQuery={layout.mapsQuery ?? null}
+              />
+            ) : null}
             <ConfirmDialog
               visible={pendingReset}
               title="Reset this layout?"
@@ -365,11 +385,13 @@ function guestKicker(expiresAt: number | null, now: number): string {
 }
 
 function BuildingActions({
+  guest,
   arranging,
   canReset,
   onToggleArrange,
   onReset,
 }: {
+  guest: boolean;
   arranging: boolean;
   canReset: boolean;
   onToggleArrange: () => void;
@@ -377,22 +399,26 @@ function BuildingActions({
 }) {
   return (
     <View style={styles.toolbar}>
-      {arranging && canReset ? (
+      {guest ? null : arranging && canReset ? (
         <IconButton icon={RotateCcw} label="Reset order" onPress={onReset} />
       ) : null}
-      <IconButton
-        icon={List}
-        label={arranging ? 'Done arranging' : 'Arrange sections'}
-        active={arranging}
-        onPress={onToggleArrange}
-      />
-      <IconButton
-        icon={KeyRound}
-        label="Keys"
-        onPress={() => {
-          router.push('/keys');
-        }}
-      />
+      {guest ? null : (
+        <IconButton
+          icon={List}
+          label={arranging ? 'Done arranging' : 'Arrange sections'}
+          active={arranging}
+          onPress={onToggleArrange}
+        />
+      )}
+      {guest ? null : (
+        <IconButton
+          icon={KeyRound}
+          label="Keys"
+          onPress={() => {
+            router.push('/keys');
+          }}
+        />
+      )}
       <IconButton
         icon={Settings}
         label="Settings"
@@ -412,9 +438,6 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     marginHorizontal: 16,
     marginBottom: 8,
-    padding: 18,
-    borderRadius: 22,
-    backgroundColor: color.overlay,
   },
   screen: {
     flex: 1,
@@ -455,43 +478,6 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 14,
     minHeight: 20,
-  },
-  guestInvite: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 14,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: color.surface,
-    gap: 4,
-  },
-  guestInviteLabel: {
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 17,
-  },
-  guestInviteFrom: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 14,
-  },
-  guestInviteNote: {
-    marginTop: 6,
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  boot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  bootLabel: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 15,
   },
   errorRow: {
     marginTop: 8,

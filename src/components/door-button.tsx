@@ -5,7 +5,9 @@ import type { SharedValue } from 'react-native-reanimated';
 import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 import { ArrangeHandle } from '@/components/arrange-handle';
+import { HoursDialog } from '@/components/hours-dialog';
 import { TimerCircle } from '@/components/timer-circle';
+import { hoursStatus, scheduleLines } from '@/lib/door-hours';
 import { hapticError, hapticImpact, hapticSuccess } from '@/lib/haptics';
 import { color, type } from '@/lib/theme';
 import { DOOR_OPEN_MS, type Door, type UnlockStatus } from '@/lib/types';
@@ -36,25 +38,50 @@ export function DoorRow({
   const [status, setStatus] = useState<UnlockStatus>('idle');
   const [failLabel, setFailLabel] = useState('Couldn’t open');
   const [now, setNow] = useState(0);
+  const [hoursOpen, setHoursOpen] = useState(false);
   const timedOpen = openUntil !== null && openUntil > now;
   const remaining = timedOpen && openUntil !== null ? openUntil - now : 0;
-  const isOpen = door.heldOpen || timedOpen;
-  const busy = status === 'unlocking' || isOpen;
   const revealing = onReveal !== undefined;
+  const closed = door.disabled && !revealing;
+  const clock = now === 0 ? Date.now() : now;
+  const statusHours = hoursStatus(
+    door.hours,
+    clock,
+    door.timeZone ?? 'America/Los_Angeles',
+    door.lockout ? 'lockout' : 'held_open',
+  );
+  const hoursHint = statusHours?.hint ?? null;
+  const propped =
+    !revealing &&
+    !closed &&
+    (door.heldOpen || (!door.lockout && statusHours?.unlocked === true));
+  const isOpen = door.heldOpen || timedOpen || propped;
+  const busy = status === 'unlocking' || isOpen;
   const canSwipe = !arranging && !revealing && onHide !== undefined;
-  const nameColor = revealing ? color.muted : (ink ?? color.text);
+  const nameColor = revealing || closed ? color.muted : (ink ?? color.text);
 
   useEffect(() => {
-    if (!timedOpen) {
+    if (!timedOpen && door.hours.length === 0) {
       return;
     }
-    const id = setInterval(() => {
-      setNow(Date.now());
-    }, 50);
+    const id = setInterval(
+      () => {
+        setNow(Date.now());
+      },
+      timedOpen ? 50 : 30_000,
+    );
     return () => {
       clearInterval(id);
     };
-  }, [timedOpen]);
+  }, [door.hours.length, timedOpen]);
+
+  const showHours = () => {
+    if (door.hours.length === 0) {
+      return;
+    }
+    void hapticImpact();
+    setHoursOpen(true);
+  };
 
   const onPress = () => {
     if (revealing) {
@@ -62,7 +89,11 @@ export function DoorRow({
       onReveal(door);
       return;
     }
-    if (arranging || busy || status !== 'idle') {
+    if (closed) {
+      showHours();
+      return;
+    }
+    if (propped || arranging || busy || status !== 'idle') {
       return;
     }
     setStatus('unlocking');
@@ -85,65 +116,120 @@ export function DoorRow({
       });
   };
 
+  const canUnlock = !revealing && !closed && !propped && !arranging;
   const rowStyle = [
     styles.row,
     last ? styles.rowLast : null,
     isOpen ? styles.rowOpen : null,
     revealing ? styles.rowHidden : null,
+    closed ? styles.rowClosed : null,
+    canUnlock || revealing || closed ? styles.rowTap : null,
   ];
 
-  const body = (
-    <>
-      <ArrangeHandle enabled={arranging && sortable && !revealing} inset />
-      <Text style={[styles.name, { color: nameColor }]} numberOfLines={2}>
-        {labelFor(door.name, status, isOpen, failLabel)}
-      </Text>
-      {timedOpen && !revealing ? (
-        <TimerCircle progress={remaining / DOOR_OPEN_MS} />
-      ) : door.heldOpen && !revealing ? (
-        <Text style={styles.open}>Open</Text>
-      ) : null}
-    </>
+  const name = (
+    <Text
+      style={[
+        styles.name,
+        { color: nameColor },
+        hoursHint !== null ? styles.nameTight : null,
+      ]}
+      numberOfLines={2}
+    >
+      {labelFor(door.name, status, isOpen, failLabel)}
+    </Text>
   );
 
   const row = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityHint={
-        revealing
-          ? 'Show this door again'
-          : canSwipe
-            ? 'Swipe right, then tap Hide'
-            : undefined
-      }
-      onPress={onPress}
-      style={({ pressed }) => [rowStyle, pressed ? styles.rowPressed : null]}
-    >
-      {body}
-    </Pressable>
+    <View style={rowStyle}>
+      <ArrangeHandle enabled={arranging && sortable && !revealing} inset />
+      <View style={styles.copy}>
+        {canUnlock || revealing || closed ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint={
+              revealing
+                ? 'Show this door again'
+                : closed
+                  ? hoursHint === null
+                    ? 'Closed right now'
+                    : `Closed. ${hoursHint}`
+                  : canSwipe
+                    ? 'Swipe right, then tap Hide'
+                    : undefined
+            }
+            onPress={onPress}
+            style={({ pressed }) => (pressed ? styles.rowPressed : null)}
+          >
+            {name}
+          </Pressable>
+        ) : (
+          name
+        )}
+        {hoursHint !== null ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={hoursHint}
+            onPress={showHours}
+            style={({ pressed }) => [
+              styles.hoursHit,
+              pressed ? styles.hoursPressed : null,
+            ]}
+          >
+            <Text style={styles.hours}>{hoursHint}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {timedOpen && !revealing ? (
+        <TimerCircle progress={remaining / DOOR_OPEN_MS} />
+      ) : propped ? (
+        <Text style={styles.open}>Open</Text>
+      ) : closed ? (
+        <Text style={styles.open}>Closed</Text>
+      ) : null}
+    </View>
+  );
+
+  const dialog = (
+    <HoursDialog
+      visible={hoursOpen}
+      title={door.name}
+      hint={hoursHint}
+      lines={scheduleLines(door.hours)}
+      onClose={() => {
+        setHoursOpen(false);
+      }}
+    />
   );
 
   if (!canSwipe) {
-    return row;
+    return (
+      <>
+        {row}
+        {dialog}
+      </>
+    );
   }
 
   return (
-    <Swipeable
-      overshootLeft={false}
-      leftThreshold={40}
-      childrenContainerStyle={styles.rowSurface}
-      renderLeftActions={(progress) => (
-        <HideAction
-          progress={progress}
-          onPress={() => {
-            void hapticImpact();
-            onHide(door);
-          }}
-        />
-      )}
-    >
-      {row}
-    </Swipeable>
+    <>
+      <Swipeable
+        overshootLeft={false}
+        leftThreshold={40}
+        childrenContainerStyle={styles.rowSurface}
+        renderLeftActions={(progress) => (
+          <HideAction
+            progress={progress}
+            onPress={() => {
+              void hapticImpact();
+              onHide(door);
+            }}
+          />
+        )}
+      >
+        {row}
+      </Swipeable>
+      {dialog}
+    </>
   );
 }
 
@@ -210,8 +296,10 @@ const styles = StyleSheet.create({
     backgroundColor: color.canvas,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.line,
-    cursor: 'pointer',
     gap: 8,
+  },
+  rowTap: {
+    cursor: 'pointer',
   },
   rowLast: {
     borderBottomWidth: 0,
@@ -222,13 +310,36 @@ const styles = StyleSheet.create({
   rowPressed: {
     backgroundColor: color.surface,
   },
-  name: {
+  copy: {
     flex: 1,
+    paddingRight: 0,
+  },
+  name: {
     fontFamily: type.body,
     fontSize: 16,
     lineHeight: 24,
     paddingVertical: 10,
-    paddingRight: 0,
+  },
+  nameTight: {
+    paddingBottom: 0,
+  },
+  hoursHit: {
+    alignSelf: 'flex-start',
+    cursor: 'pointer',
+  },
+  hoursPressed: {
+    opacity: 0.7,
+  },
+  hours: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingBottom: 10,
+    paddingTop: 2,
+  },
+  rowClosed: {
+    opacity: 0.58,
   },
   rowHidden: {
     opacity: 0.72,

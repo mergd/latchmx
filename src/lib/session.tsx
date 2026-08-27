@@ -1,7 +1,6 @@
 import { usePathname } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
-import * as WebBrowser from 'expo-web-browser';
 import {
   createContext,
   useCallback,
@@ -12,13 +11,20 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
+import {
+  guestFromInvite,
+  loadAccount,
+  persistAccount,
+  residentFromProfile,
+} from '@/lib/account';
 import { capture, resetAnalytics } from '@/lib/analytics';
 import {
   authorizationCodeFromUrl,
   authorizationUrl,
   exchangeAuthorizationCode,
+  extractAuthorizationCode,
   fetchDoors,
   refreshAccessToken,
   releaseDoor,
@@ -28,13 +34,16 @@ import {
   createKey as createKeyRequest,
   fetchGuestSession,
   guestUnlock,
+  isDeadKeyError,
   listKeys as listKeysRequest,
+  pingGuestSession,
   revokeKey as revokeKeyRequest,
 } from '@/lib/keys';
 import { storageGet, storageRemove, storageSet } from '@/lib/storage';
 import {
   DOOR_OPEN_MS,
   type Account,
+  type AccountProfile,
   type AuthTokens,
   type CreatedKey,
   type Door,
@@ -69,6 +78,7 @@ type SessionContextValue = {
   bootError: string | null;
   unlock: (door: Door) => Promise<void>;
   openSignIn: () => Promise<void>;
+  signInUrl: string;
   completeSignIn: (code: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshDoors: () => Promise<void>;
@@ -102,6 +112,8 @@ type SessionContextValue = {
     ttl: KeyTtl;
     label: string;
     note: string;
+    inviterName: string;
+    contact: string;
   }) => Promise<CreatedKey>;
   listKeys: () => Promise<IssuedKey[]>;
   revokeKey: (keyId: string) => Promise<void>;
@@ -153,21 +165,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
       setDoors(snapshot.doors);
-      setAccount(null);
       setBuildingName(snapshot.buildingName);
       setGuestExpiresAt(snapshot.expiresAt);
       setGuestInvite(snapshot.invite);
       setBootError(null);
       setMode('guest');
+      const stored = await loadAccount();
+      if (seq !== bootSeq.current) {
+        return;
+      }
+      const next = guestFromInvite(stored, snapshot.invite, snapshot.buildingName);
+      setAccount(next);
+      await persistAccount(next);
     } catch (error) {
       if (seq !== bootSeq.current) {
         return;
       }
       setDoors([]);
-      setAccount(null);
       setGuestExpiresAt(null);
       setGuestInvite(null);
       setMode('guest');
+      const stored = await loadAccount();
+      if (seq !== bootSeq.current) {
+        return;
+      }
+      if (stored?.kind === 'guest') {
+        setAccount(stored);
+      } else {
+        setAccount(null);
+      }
       setBootError(error instanceof Error ? error.message : 'This key is dead.');
     }
   }, []);
@@ -188,11 +214,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (seq !== bootSeq.current) {
       return;
     }
+    const nextBuilding = snapshot.doors[0]?.buildingName ?? 'Your building';
     setDoors(snapshot.doors);
-    setAccount(snapshot.account);
-    setBuildingName(snapshot.doors[0]?.buildingName ?? 'Your building');
+    setBuildingName(nextBuilding);
     setBootError(null);
     setMode('signed_in');
+    const stored = await loadAccount();
+    if (seq !== bootSeq.current) {
+      return;
+    }
+    const next = residentFromProfile(stored, snapshot.account, nextBuilding);
+    setAccount(next);
+    await persistAccount(next);
   }, [persistTokens]);
 
   useEffect(() => {
@@ -208,12 +241,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const storedZones = await storageGet(ZONE_KEY);
         const storedLayout = await storageGet(LAYOUT_KEY);
         const storedHidden = await storageGet(HIDDEN_KEY);
+        const storedAccount = await loadAccount();
         if (seq !== bootSeq.current) {
           return;
         }
         setZoneByDoorId(parseZones(storedZones));
         setArrangement(parseArrangement(storedLayout));
         setHiddenByDoorId(parseHidden(storedHidden));
+        if (storedAccount?.kind === 'resident') {
+          setAccount(storedAccount);
+        }
         const parsed = parseTokens(stored);
         if (parsed === null) {
           setMode('signed_out');
@@ -268,6 +305,46 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [guestSecret, loadGuest, loadLiveDoors]);
 
   useEffect(() => {
+    if (guestSecret === null || mode !== 'guest' || bootError !== null) {
+      return;
+    }
+    const check = () => {
+      void pingGuestSession(guestSecret).catch((error: unknown) => {
+        if (!isDeadKeyError(error)) {
+          return;
+        }
+        setDoors([]);
+        setGuestExpiresAt(null);
+        setGuestInvite(null);
+        setBootError(
+          error instanceof Error ? error.message : 'This key is dead.',
+        );
+      });
+    };
+    const interval = setInterval(check, 4000);
+    const app = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        check();
+      }
+    });
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        check();
+      }
+    };
+    if (Platform.OS === 'web') {
+      document.addEventListener('visibilitychange', onVisible);
+    }
+    return () => {
+      clearInterval(interval);
+      app.remove();
+      if (Platform.OS === 'web') {
+        document.removeEventListener('visibilitychange', onVisible);
+      }
+    };
+  }, [bootError, guestSecret, mode]);
+
+  useEffect(() => {
     if (mode === 'loading') {
       return;
     }
@@ -285,6 +362,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const unlock = useCallback(
     async (door: Door) => {
+      if (door.disabled) {
+        throw new Error('This door is closed right now.');
+      }
       if (door.heldOpen || (openUntilByDoorId[door.id] ?? 0) > Date.now()) {
         return;
       }
@@ -306,6 +386,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             door_name: door.name,
             building_id: door.buildingId,
           });
+          if (isDeadKeyError(error)) {
+            setDoors([]);
+            setGuestExpiresAt(null);
+            setGuestInvite(null);
+            setBootError(error instanceof Error ? error.message : 'This key is dead.');
+          }
           throw error;
         }
         return;
@@ -344,6 +430,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     capture('signed_out');
     resetAnalytics();
     await persistTokens(null);
+    await persistAccount(null);
     setAccount(null);
     setDoors([]);
     setBuildingName('');
@@ -352,39 +439,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setMode('signed_out');
   }, [persistTokens]);
 
+  const signInUrl = useMemo(
+    () => (hasBmxCredentials() ? authorizationUrl(bmxConfig.redirectUri) : ''),
+    [],
+  );
+
   const openSignIn = useCallback(async () => {
-    if (!hasBmxCredentials()) {
+    if (signInUrl.length === 0) {
       throw new Error('ButterflyMX credentials are missing.');
     }
-    const url = authorizationUrl(bmxConfig.redirectUri);
-    if (Platform.OS === 'web') {
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener noreferrer';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+    if (Platform.OS !== 'web') {
       return;
     }
-    await WebBrowser.openBrowserAsync(url, {
-      dismissButtonStyle: 'close',
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-    });
-  }, []);
+    const anchor = document.createElement('a');
+    anchor.href = signInUrl;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }, [signInUrl]);
 
   const completeSignIn = useCallback(
     async (code: string) => {
-      const trimmed = code.trim();
-      if (trimmed.length === 0) {
+      const secret = extractAuthorizationCode(code);
+      if (secret.length === 0) {
         throw new Error('Paste the authorization code from ButterflyMX.');
       }
-      if (signInInFlight.current?.code === trimmed) {
+      if (signInInFlight.current?.code === secret) {
         return signInInFlight.current.promise;
       }
       const promise = (async () => {
         const nextTokens = await exchangeAuthorizationCode(
-          trimmed,
+          secret,
           bmxConfig.redirectUri,
         );
         await persistTokens(nextTokens);
@@ -392,11 +479,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setBootError(null);
         capture('signed_in');
       })();
-      signInInFlight.current = { code: trimmed, promise };
+      signInInFlight.current = { code: secret, promise };
       try {
         await promise;
       } finally {
-        if (signInInFlight.current?.code === trimmed) {
+        if (signInInFlight.current?.code === secret) {
           signInInFlight.current = null;
         }
       }
@@ -579,7 +666,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [guestSecret, loadGuest, loadLiveDoors, mode, tokens]);
 
   const createKey = useCallback(
-    async ({ ttl, label, note }: { ttl: KeyTtl; label: string; note: string }) => {
+    async ({
+      ttl,
+      label,
+      note,
+      inviterName,
+      contact,
+    }: {
+      ttl: KeyTtl;
+      label: string;
+      note: string;
+      inviterName: string;
+      contact: string;
+    }) => {
       if (tokens === null) {
         throw new Error('Sign in to create a key.');
       }
@@ -597,7 +696,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         doorIds,
         label,
         note,
-        inviterName: account?.name?.trim() || account?.email?.trim() || '',
+        inviterName:
+          inviterName.trim() ||
+          account?.name?.trim() ||
+          account?.email?.trim() ||
+          '',
+        contact: contact.trim(),
       });
       capture('key_created', { ttl, door_count: doorIds.length });
       return created;
@@ -645,6 +749,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         bootError,
         unlock,
         openSignIn,
+        signInUrl,
         completeSignIn,
         signOut,
         refreshDoors,
@@ -681,6 +786,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       revokeKey,
       mode,
       openSignIn,
+      signInUrl,
       completeSignIn,
       refreshDoors,
       signOut,
@@ -713,7 +819,7 @@ export function useSession(): SessionContextValue {
 
 function unpackLiveBuilding(result: unknown): {
   doors: Door[];
-  account: Account | null;
+  account: AccountProfile | null;
 } {
   if (Array.isArray(result)) {
     return { doors: result as Door[], account: null };
@@ -721,11 +827,24 @@ function unpackLiveBuilding(result: unknown): {
   if (typeof result !== 'object' || result === null) {
     return { doors: [], account: null };
   }
-  const record = result as { doors?: unknown; account?: Account | null };
+  const record = result as { doors?: unknown; account?: AccountProfile | null };
   return {
     doors: Array.isArray(record.doors) ? record.doors : [],
-    account: record.account ?? null,
+    account: parseAccountProfile(record.account),
   };
+}
+
+function parseAccountProfile(value: unknown): AccountProfile | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const record = value as { name?: unknown; email?: unknown };
+  const name = typeof record.name === 'string' ? record.name : null;
+  const email = typeof record.email === 'string' ? record.email : null;
+  if (name === null && email === null) {
+    return null;
+  }
+  return { name, email };
 }
 
 function parseTokens(raw: string | null): AuthTokens | null {

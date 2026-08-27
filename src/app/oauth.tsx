@@ -2,6 +2,7 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { FlapLoader } from '@/components/flap-loader';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
@@ -47,6 +48,7 @@ export default function OAuthRedirect() {
 
   return (
     <View style={styles.screen}>
+      {status !== 'error' ? <FlapLoader size={64} /> : null}
       <Text style={styles.title}>
         {status === 'error' ? 'Could not connect' : 'Connecting…'}
       </Text>

@@ -65,6 +65,10 @@ export async function handleGuestRequest(
   if (path === '/api/guest' && request.method === 'GET') {
     return json(await guestSession(env, secret), 200, headers);
   }
+  if (path === '/api/guest/alive' && request.method === 'GET') {
+    const record = await liveKey(env, secret);
+    return json({ expiresAt: record.expiresAt }, 200, headers);
+  }
   if (path === '/api/guest/unlock' && request.method === 'POST') {
     await guestUnlock(request, env, secret);
     return json({ ok: true }, 200, headers);
@@ -100,6 +104,7 @@ async function createKey(
   const label = parseText(body?.label, 60) ?? 'Guest invite';
   const note = parseText(body?.note, 240);
   const inviterName = parseText(body?.inviterName, 80);
+  const contact = parseText(body?.contact, 80);
   const client = createDirectBmxClient(accessToken, { baseUrl: env.BMX_API_ORIGIN });
   const ownerIdValue = await ownerIdFromClient(client);
   const live = (await listKeys(env, accessToken)).filter(
@@ -131,6 +136,7 @@ async function createKey(
     label,
     note,
     inviterName,
+    contact,
     wrappedSecret: await wrapString(wrapSecret(env), secret),
   };
   await putKey(env, record, await sha256Hex(secret));
@@ -171,6 +177,7 @@ async function guestSession(env: Env, secret: string) {
     label: record.label ?? 'Guest invite',
     note: record.note ?? null,
     inviterName: record.inviterName ?? null,
+    contact: record.contact ?? null,
   };
 }
 
@@ -203,6 +210,9 @@ async function guestUnlock(
   if (door === undefined) {
     throw new HttpError(404, 'That door is gone.');
   }
+  if (door.disabled) {
+    throw new HttpError(403, 'That door is closed right now.');
+  }
   await releaseDoorOn(
     createDirectBmxClient(tokens.accessToken, { baseUrl: env.BMX_API_ORIGIN }),
     door,
@@ -215,15 +225,36 @@ async function guestUnlock(
 }
 
 async function liveKey(env: Env, secret: string): Promise<KeyRecord> {
-  const id = await getKeyIdByHash(env, await sha256Hex(secret));
+  const hash = await sha256Hex(secret);
+  let id = await getKeyIdByHash(env, hash, { allowKv: false });
+  if (id === null) {
+    await sleep(150);
+    id = await getKeyIdByHash(env, hash, { allowKv: false });
+  }
+  if (id === null) {
+    id = await getKeyIdByHash(env, hash);
+  }
   if (id === null) {
     throw new HttpError(410, 'This key is dead.');
   }
-  const record = await getKey(env, id);
+  let record = await getKey(env, id, { allowKv: false });
+  if (record === null) {
+    await sleep(150);
+    record = await getKey(env, id, { allowKv: false });
+  }
+  if (record === null) {
+    record = await getKey(env, id);
+  }
   if (record === null || record.revoked || record.expiresAt <= Date.now()) {
     throw new HttpError(410, 'This key is dead.');
   }
   return record;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function ownerId(env: Env, accessToken: string): Promise<string> {
@@ -291,6 +322,7 @@ function toIssued(record: KeyRecord, url: string | null): IssuedKey {
     label: record.label ?? 'Guest invite',
     note: record.note ?? null,
     inviterName: record.inviterName ?? null,
+    contact: record.contact ?? null,
     url,
   };
 }

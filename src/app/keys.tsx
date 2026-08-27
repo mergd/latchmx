@@ -2,43 +2,29 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { IconButton } from '@/components/icon-button';
+import { KeysSkeleton } from '@/components/skeleton';
+import { InviteDialog } from '@/components/invite-dialog';
 import { expiryCopy, expiryDialogBody } from '@/lib/expiry';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
 import { color, type } from '@/lib/theme';
 import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
-const DURATIONS: { ttl: KeyTtl; label: string; hint: string }[] = [
-  { ttl: '1h', label: '1 hour', hint: 'For someone on the way' },
-  { ttl: 'tonight', label: 'Tonight', hint: 'Dies at midnight Pacific' },
-  { ttl: '24h', label: '24 hours', hint: 'Overnight, then gone' },
-];
-
 export default function KeysScreen() {
-  const { mode, createKey, listKeys, revokeKey } = useSession();
+  const { mode, account, createKey, listKeys, revokeKey } = useSession();
   const [keys, setKeys] = useState<IssuedKey[] | null>(null);
-  const [busy, setBusy] = useState<KeyTtl | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
   const [created, setCreated] = useState<CreatedKey | null>(null);
   const [copied, setCopied] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<IssuedKey | null>(null);
   const [now, setNow] = useState(0);
-  const [label, setLabel] = useState('');
-  const [note, setNote] = useState('');
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -74,25 +60,30 @@ export default function KeysScreen() {
     };
   }, []);
 
-  const onCreate = async (ttl: KeyTtl) => {
-    setBusy(ttl);
+  const onCreate = async (input: {
+    ttl: KeyTtl;
+    label: string;
+    note: string;
+    inviterName: string;
+    contact: string;
+  }) => {
+    setBusy(true);
     setError(null);
     try {
-      const next = await createKey({ ttl, label, note });
+      const next = await createKey(input);
       await refresh();
       const when = expiryCopy(next.expiresAt, next.createdAt).until.replace(
         /^Until /,
         '',
       );
       const result = await shareText(next.url, inviteShareText(next, when));
+      setComposing(false);
       setCreated(next);
       setCopied(result === 'copied');
-      setLabel('');
-      setNote('');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not create that key.');
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -160,64 +151,35 @@ export default function KeysScreen() {
             />
             <Text style={styles.title}>Keys</Text>
           </View>
-          <Text style={styles.lede}>
-            A link opens Latch in the browser. No PIN. It dies when the clock runs
-            out.
-          </Text>
         </View>
 
         {signedIn ? (
           <View style={styles.create}>
-            <TextInput
-              value={label}
-              onChangeText={setLabel}
-              placeholder="Invite label"
-              placeholderTextColor={color.muted}
-              maxLength={60}
-              returnKeyType="next"
-              accessibilityLabel="Invite label"
-              style={styles.input}
-            />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Note (optional)"
-              placeholderTextColor={color.muted}
-              maxLength={240}
-              multiline
-              accessibilityLabel="Invite note"
-              style={[styles.input, styles.noteInput]}
-            />
-            <View style={styles.durations}>
-              {DURATIONS.map((item) => (
-                <Pressable
-                  key={item.ttl}
-                  disabled={busy !== null}
-                  onPress={() => {
-                    void onCreate(item.ttl);
-                  }}
-                  style={({ pressed }) => [
-                    styles.duration,
-                    pressed ? styles.durationPressed : null,
-                    busy === item.ttl ? styles.durationBusy : null,
-                  ]}
-                >
-                  <Text style={styles.durationLabel}>{item.label}</Text>
-                  <Text style={styles.durationHint}>{item.hint}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite"
+              onPress={() => {
+                setError(null);
+                setComposing(true);
+              }}
+              style={({ pressed }) => [
+                styles.invite,
+                pressed ? styles.invitePressed : null,
+              ]}
+            >
+              <Text style={styles.inviteLabel}>Invite</Text>
+            </Pressable>
           </View>
         ) : (
           <Text style={styles.empty}>Sign in to make an invite.</Text>
         )}
 
-        {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+        {error !== null && !composing ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.list}>
           <Text style={styles.section}>Live invites</Text>
           {loading ? (
-            <ActivityIndicator color={color.accent} style={styles.spinner} />
+            <KeysSkeleton />
           ) : live.length === 0 ? (
             <Text style={styles.empty}>No live invites.</Text>
           ) : (
@@ -229,6 +191,11 @@ export default function KeysScreen() {
                     {remainingLabel(key.expiresAt, now)} ·{' '}
                     {key.doorCount > 0 ? `${key.doorCount} doors` : 'All doors'}
                   </Text>
+                  {key.contact !== null ? (
+                    <Text style={styles.rowNote} numberOfLines={1}>
+                      {key.contact}
+                    </Text>
+                  ) : null}
                   {key.note !== null ? (
                     <Text style={styles.rowNote} numberOfLines={2}>
                       {key.note}
@@ -243,7 +210,7 @@ export default function KeysScreen() {
                       }}
                       style={({ pressed }) => [
                         styles.rowAction,
-                        pressed ? styles.durationPressed : null,
+                        pressed ? styles.invitePressed : null,
                       ]}
                     >
                       <Text style={styles.copyLabel}>
@@ -257,7 +224,7 @@ export default function KeysScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.rowAction,
-                      pressed ? styles.durationPressed : null,
+                      pressed ? styles.invitePressed : null,
                     ]}
                   >
                     <Text style={styles.revokeLabel}>Revoke</Text>
@@ -269,6 +236,22 @@ export default function KeysScreen() {
         </View>
       </ScrollView>
 
+      <InviteDialog
+        visible={composing}
+        busy={busy}
+        error={error}
+        defaultName={account?.name?.trim() ?? ''}
+        defaultContact={account?.email?.trim() ?? ''}
+        onClose={() => {
+          if (!busy) {
+            setComposing(false);
+            setError(null);
+          }
+        }}
+        onCreate={(input) => {
+          void onCreate(input);
+        }}
+      />
       <ConfirmDialog
         visible={created !== null}
         title="Invite is live"
@@ -319,7 +302,8 @@ export default function KeysScreen() {
 
 function inviteShareText(key: IssuedKey, when: string): string {
   const from = key.inviterName === null ? '' : ` from ${key.inviterName}`;
-  return `${key.label}${from}. Latch access ends at ${when}.`;
+  const reach = key.contact === null ? '' : ` Reach them at ${key.contact}.`;
+  return `${key.label}${from}. Latch access ends at ${when}.${reach}`;
 }
 
 function remainingLabel(expiresAt: number, now: number): string {
@@ -354,8 +338,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 20,
-    gap: 10,
+    paddingBottom: 12,
   },
   titleRow: {
     flexDirection: 'row',
@@ -370,59 +353,23 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 38,
   },
-  lede: {
-    paddingHorizontal: 4,
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 15,
-    lineHeight: 22,
-  },
   create: {
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  input: {
-    minHeight: 52,
-    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 13,
-    backgroundColor: color.surface,
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 16,
   },
-  noteInput: {
-    minHeight: 76,
-    textAlignVertical: 'top',
-  },
-  durations: {
-    gap: 8,
-  },
-  duration: {
-    minHeight: 72,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+  invite: {
+    backgroundColor: color.accent,
+    borderRadius: 14,
     paddingVertical: 14,
-    backgroundColor: color.surface,
-    justifyContent: 'center',
-    gap: 4,
+    alignItems: 'center',
     cursor: 'pointer',
   },
-  durationPressed: {
+  invitePressed: {
     opacity: 0.78,
   },
-  durationBusy: {
-    opacity: 0.6,
-  },
-  durationLabel: {
-    color: color.text,
+  inviteLabel: {
+    color: color.onAccent,
     fontFamily: type.body,
-    fontSize: 17,
-  },
-  durationHint: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 13,
+    fontSize: 16,
   },
   error: {
     marginTop: 16,
@@ -441,10 +388,6 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 15,
     paddingHorizontal: 4,
-  },
-  spinner: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
   },
   empty: {
     color: color.muted,

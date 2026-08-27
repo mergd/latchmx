@@ -21,11 +21,22 @@ export default function SettingsScreen() {
   const name = account?.name?.trim() ?? '';
   const email = account?.email?.trim() ?? '';
   const identity =
-    name.length > 0 || email.length > 0
-      ? { name, email }
-      : buildingName.length > 0
-        ? { name: buildingName, email: '' }
-        : { name: 'Signed in', email: '' };
+    account !== null
+      ? {
+          name: name.length > 0 ? name : account.kind === 'guest' ? 'Guest' : 'Signed in',
+          email,
+          hint:
+            account.kind === 'guest'
+              ? 'Guest pass'
+              : (account.buildingName ?? buildingName),
+        }
+      : mode === 'signed_in'
+        ? {
+            name: name.length > 0 ? name : buildingName.length > 0 ? buildingName : 'Signed in',
+            email,
+            hint: buildingName,
+          }
+        : null;
 
   useEffect(() => {
     if (!copied) {
@@ -60,11 +71,13 @@ export default function SettingsScreen() {
             />
             <Text style={styles.title}>Account</Text>
           </View>
-          {mode === 'signed_in' ? (
+          {identity !== null ? (
             <View style={styles.identity}>
               <Text style={styles.accountName}>{identity.name}</Text>
               {identity.email.length > 0 ? (
                 <Text style={styles.accountEmail}>{identity.email}</Text>
+              ) : identity.hint.length > 0 ? (
+                <Text style={styles.accountEmail}>{identity.hint}</Text>
               ) : null}
             </View>
           ) : null}

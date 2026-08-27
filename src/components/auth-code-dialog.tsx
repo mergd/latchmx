@@ -11,6 +11,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AuthLoginDrawer } from '@/components/auth-login-drawer';
+import {
+  AUTHORIZATION_CODE_EXAMPLE,
+  extractAuthorizationCode,
+  looksLikeAuthorizationCode,
+} from '@/lib/bmx-api';
 import { color, type } from '@/lib/theme';
 
 type Step = 'instruct' | 'paste';
@@ -19,6 +25,7 @@ type AuthCodeDialogProps = {
   visible: boolean;
   busy: boolean;
   error: string | null;
+  signInUrl: string;
   onOpenLogin: () => Promise<void>;
   onCancel: () => void;
   onInstall: (code: string) => Promise<void>;
@@ -28,6 +35,7 @@ export function AuthCodeDialog({
   visible,
   busy,
   error,
+  signInUrl,
   onOpenLogin,
   onCancel,
   onInstall,
@@ -35,14 +43,14 @@ export function AuthCodeDialog({
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [step, setStep] = useState<Step>('instruct');
-  const [browsing, setBrowsing] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [code, setCode] = useState('');
   const [keyboardInset, setKeyboardInset] = useState(0);
 
   useEffect(() => {
     if (!visible) {
       setStep('instruct');
-      setBrowsing(false);
+      setDrawerOpen(false);
       setCode('');
       setKeyboardInset(0);
       return;
@@ -62,7 +70,7 @@ export function AuthCodeDialog({
   }, [visible]);
 
   useEffect(() => {
-    if (!visible || browsing || step !== 'paste') {
+    if (!visible || drawerOpen || step !== 'paste') {
       return;
     }
     const id = requestAnimationFrame(() => {
@@ -71,66 +79,92 @@ export function AuthCodeDialog({
     return () => {
       cancelAnimationFrame(id);
     };
-  }, [browsing, step, visible]);
+  }, [drawerOpen, step, visible]);
 
   const goToPortal = async () => {
     setStep('paste');
-    if (Platform.OS !== 'web') {
-      setBrowsing(true);
-    }
-    try {
+    if (Platform.OS === 'web' || signInUrl.length === 0) {
       await onOpenLogin();
-    } finally {
-      setBrowsing(false);
-    }
-  };
-
-  const submit = () => {
-    const trimmed = code.trim();
-    if (busy || trimmed.length === 0) {
       return;
     }
+    setDrawerOpen(true);
+  };
+
+  const submit = (raw: string = code) => {
+    const secret = extractAuthorizationCode(raw);
+    if (busy || !looksLikeAuthorizationCode(secret)) {
+      return;
+    }
+    if (secret !== code) {
+      setCode(secret);
+    }
     Keyboard.dismiss();
-    void onInstall(trimmed);
+    void onInstall(secret);
+  };
+
+  const onChangeCode = (value: string) => {
+    const secret = extractAuthorizationCode(value);
+    const labeled =
+      value.includes('\n') || /authorization\s*code/i.test(value);
+    setCode(labeled ? secret : value);
+    if (looksLikeAuthorizationCode(secret)) {
+      submit(secret);
+    }
   };
 
   const lift = keyboardInset > 0 ? keyboardInset : insets.bottom;
   const centered = Platform.OS === 'web' && keyboardInset === 0;
 
   return (
-    <Modal
-      visible={visible && !browsing}
-      transparent
-      animationType="fade"
-      onRequestClose={busy ? undefined : onCancel}
-    >
-      <View
-        style={[
-          styles.backdrop,
-          centered ? styles.backdropCenter : styles.backdropSheet,
-          { paddingBottom: centered ? 28 : lift + 12 },
-        ]}
+    <>
+      <Modal
+        visible={visible && !drawerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={busy ? undefined : onCancel}
       >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={busy ? undefined : onCancel}
-        />
-        <View style={styles.card}>
-          {renderStep(step, {
-            busy,
-            code,
-            error,
-            onCancel,
-            onChangeCode: setCode,
-            onGoToPortal: () => {
-              void goToPortal();
-            },
-            onSubmit: submit,
-            inputRef,
-          })}
+        <View
+          style={[
+            styles.backdrop,
+            centered ? styles.backdropCenter : styles.backdropSheet,
+            { paddingBottom: centered ? 28 : lift + 12 },
+          ]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={busy ? undefined : onCancel}
+          />
+          <View style={styles.card}>
+            {renderStep(step, {
+              busy,
+              code,
+              error,
+              onCancel,
+              onChangeCode,
+              onGoToPortal: () => {
+                void goToPortal();
+              },
+              onSubmit: () => {
+                submit();
+              },
+              inputRef,
+            })}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      <AuthLoginDrawer
+        visible={visible && drawerOpen}
+        url={signInUrl}
+        onClose={() => {
+          setDrawerOpen(false);
+        }}
+        onCapturedCode={(nextCode) => {
+          setCode(nextCode);
+          setDrawerOpen(false);
+          void onInstall(nextCode);
+        }}
+      />
+    </>
   );
 }
 
@@ -184,8 +218,9 @@ function renderStep(
         <>
           <Text style={styles.title}>Paste the value</Text>
           <Text style={styles.body}>
-            Paste the value you copied, then tap Install.
+            It should start with Authorization code:
           </Text>
+          <Text style={styles.example}>{AUTHORIZATION_CODE_EXAMPLE}</Text>
           <Pressable
             onPress={props.onGoToPortal}
             hitSlop={8}
@@ -200,7 +235,7 @@ function renderStep(
             autoCorrect={false}
             autoComplete="off"
             textContentType="none"
-            placeholder="Authorization code"
+            placeholder={AUTHORIZATION_CODE_EXAMPLE}
             placeholderTextColor={color.muted}
             style={styles.input}
             value={props.code}
@@ -222,10 +257,14 @@ function renderStep(
                 styles.btn,
                 styles.btnPrimary,
                 pressed ? styles.btnPressed : null,
-                props.busy || props.code.trim().length === 0 ? styles.btnBusy : null,
+                props.busy || !looksLikeAuthorizationCode(props.code)
+                  ? styles.btnBusy
+                  : null,
               ]}
               onPress={props.onSubmit}
-              disabled={props.busy || props.code.trim().length === 0}
+              disabled={
+                props.busy || !looksLikeAuthorizationCode(props.code)
+              }
             >
               <Text style={styles.btnPrimaryLabel}>
                 {props.busy ? 'Installing' : 'Install'}
@@ -276,6 +315,16 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 15,
     lineHeight: 22,
+  },
+  example: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 13,
+    lineHeight: 18,
+    backgroundColor: color.well,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   loginLink: {
     alignSelf: 'flex-start',

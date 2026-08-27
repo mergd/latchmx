@@ -289,6 +289,15 @@ function insertBefore(
   return [...without.slice(0, index), draggedId, ...without.slice(index)];
 }
 
+export function isLockoutDoor(door: Door): boolean {
+  const layout = layoutForDoor(door);
+  if (layout.lockout === undefined) {
+    return false;
+  }
+  const name = door.name.trim().toLowerCase();
+  return layout.lockout.some((item) => item.trim().toLowerCase() === name);
+}
+
 function isConfigHidden(door: Door): boolean {
   const layout = layoutForDoor(door);
   const name = door.name.trim().toLowerCase();

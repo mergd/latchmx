@@ -18,6 +18,7 @@ export async function createKey(input: {
   label: string;
   note: string;
   inviterName: string;
+  contact: string;
 }): Promise<CreatedKey> {
   const payload = await keysRequest('/api/keys', {
     method: 'POST',
@@ -29,6 +30,7 @@ export async function createKey(input: {
       label: input.label,
       note: input.note,
       inviterName: input.inviterName,
+      contact: input.contact,
     },
   });
   const created = parseCreated(payload);
@@ -62,33 +64,47 @@ export async function revokeKey(
 }
 
 export async function fetchGuestSession(secret: string): Promise<GuestSession> {
-  const payload = await keysRequest('/api/guest', {
+  return retryGuestRead(async () => {
+    const payload = await keysRequest('/api/guest', {
+      method: 'GET',
+      accessToken: secret,
+    });
+    const record = asRecord(payload);
+    if (
+      record === null ||
+      !Array.isArray(record.doors) ||
+      typeof record.buildingName !== 'string' ||
+      typeof record.expiresAt !== 'number'
+    ) {
+      throw new Error('This key is dead.');
+    }
+    return {
+      doors: record.doors as Door[],
+      buildingName: record.buildingName,
+      expiresAt: record.expiresAt,
+      invite: {
+        label:
+          typeof record.label === 'string' && record.label.length > 0
+            ? record.label
+            : 'Guest invite',
+        note: typeof record.note === 'string' ? record.note : null,
+        inviterName:
+          typeof record.inviterName === 'string' ? record.inviterName : null,
+        contact: typeof record.contact === 'string' ? record.contact : null,
+      },
+    };
+  });
+}
+
+export async function pingGuestSession(secret: string): Promise<void> {
+  await keysRequest('/api/guest/alive', {
     method: 'GET',
     accessToken: secret,
   });
-  const record = asRecord(payload);
-  if (
-    record === null ||
-    !Array.isArray(record.doors) ||
-    typeof record.buildingName !== 'string' ||
-    typeof record.expiresAt !== 'number'
-  ) {
-    throw new Error('This key is dead.');
-  }
-  return {
-    doors: record.doors as Door[],
-    buildingName: record.buildingName,
-    expiresAt: record.expiresAt,
-    invite: {
-      label:
-        typeof record.label === 'string' && record.label.length > 0
-          ? record.label
-          : 'Guest invite',
-      note: typeof record.note === 'string' ? record.note : null,
-      inviterName:
-        typeof record.inviterName === 'string' ? record.inviterName : null,
-    },
-  };
+}
+
+export function isDeadKeyError(error: unknown): boolean {
+  return error instanceof Error && /this key is dead/i.test(error.message);
 }
 
 export async function guestUnlock(secret: string, door: Door): Promise<void> {
@@ -134,6 +150,37 @@ async function keysRequest(
     throw new Error(message);
   }
   return payload;
+}
+
+async function retryGuestRead<T>(run: () => Promise<T>): Promise<T> {
+  const waits = [0, 250, 700];
+  let last: unknown = null;
+  for (const [index, wait] of waits.entries()) {
+    if (wait > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, wait);
+      });
+    }
+    try {
+      return await run();
+    } catch (error) {
+      last = error;
+      if (index === waits.length - 1 || !isRetryableGuestError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw last instanceof Error ? last : new Error('This key is dead.');
+}
+
+function isRetryableGuestError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return (
+    /this key is dead/i.test(error.message) ||
+    /no longer valid/i.test(error.message)
+  );
 }
 
 export function keysApiOrigin(): string {
@@ -184,6 +231,7 @@ function parseIssued(value: unknown): IssuedKey | null {
     note: typeof record.note === 'string' ? record.note : null,
     inviterName:
       typeof record.inviterName === 'string' ? record.inviterName : null,
+    contact: typeof record.contact === 'string' ? record.contact : null,
     url: typeof record.url === 'string' ? record.url : null,
   };
 }

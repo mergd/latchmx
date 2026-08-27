@@ -4,8 +4,17 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "resourceClass": "m-medium"
       }
@@ -13,6 +22,9 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "track": "internal"
+      },
       "ios": {
         "ascAppId": "6804158514",
         "ascApiKeyId": "M59JJX5KS5",

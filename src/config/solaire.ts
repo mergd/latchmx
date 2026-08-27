@@ -8,7 +8,7 @@ const solaire: BuildingConfig = {
   },
   show: [
     "Front Desk Lobby Pin Pad",
-    "Main Entrance",
+    // "Main Entrance",
     "Main Entrance- Fremont Street",
     "1st Floor Elevator Panel 1",
     "1st Floor Elevator Panel 2",
@@ -30,8 +30,16 @@ const solaire: BuildingConfig = {
     "Pet Grooming Station",
     "Town House Trash Room",
   ],
+  lockout: [
+    "6th Floor Resident Lounge",
+    "8th Floor BBQ & Spa",
+    "33rd Floor Rooftop",
+    "Pet Grooming Station",
+    "Town House Trash Room",
+  ],
   displayName: "Solaire",
   address: "299 Fremont",
+  mapsQuery: "Solaire, 299 Fremont Street, San Francisco, CA",
   hero: {
     uri: "https://bmx.fldr.zip/buildings/solaire.jpg?v=2",
   },
