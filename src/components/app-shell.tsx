@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { color } from '@/lib/theme';
@@ -7,9 +7,10 @@ import { color } from '@/lib/theme';
 type AppShellProps = {
   children: ReactNode;
   background?: ReactNode;
+  edgeToEdge?: boolean;
 };
 
-export function AppShell({ children, background }: AppShellProps) {
+export function AppShell({ children, background, edgeToEdge = false }: AppShellProps) {
   return (
     <View style={styles.page}>
       {background != null ? (
@@ -17,7 +18,10 @@ export function AppShell({ children, background }: AppShellProps) {
           {background}
         </View>
       ) : null}
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView
+        style={[styles.safe, Platform.OS === 'web' ? styles.webSafe : null]}
+        edges={edgeToEdge ? ['bottom'] : ['top', 'bottom']}
+      >
         {children}
       </SafeAreaView>
     </View>
@@ -30,11 +34,14 @@ const styles = StyleSheet.create({
     backgroundColor: color.canvas,
   },
   background: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     pointerEvents: 'none',
   },
   safe: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  webSafe: {
+    paddingBottom: 24,
   },
 });

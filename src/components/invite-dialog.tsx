@@ -1,12 +1,12 @@
-import { Picker } from "@react-native-picker/picker";
+import { MenuView } from "@react-native-menu/menu";
 import { CaretDownIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import {
-  ActionSheetIOS,
   Keyboard,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { color, type } from "@/lib/theme";
-import { KEY_TTLS, type KeyTtl } from "@/lib/types";
+import { type KeyTtl } from "@/lib/types";
 
 const DURATIONS: { ttl: KeyTtl; label: string; hint: string }[] = [
   { ttl: "1h", label: "1 hour", hint: "For someone on the way" },
@@ -56,6 +56,7 @@ export function InviteDialog({
   const [contact, setContact] = useState(defaultContact);
   const [durationOpen, setDurationOpen] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [menuKeyboardInset, setMenuKeyboardInset] = useState(0);
 
   useEffect(() => {
     if (!visible) {
@@ -66,6 +67,7 @@ export function InviteDialog({
       setContact(defaultContact);
       setDurationOpen(false);
       setKeyboardInset(0);
+      setMenuKeyboardInset(0);
       return;
     }
     setInviterName(defaultName);
@@ -86,7 +88,11 @@ export function InviteDialog({
     };
   }, [defaultContact, defaultName, visible]);
 
-  const lift = keyboardInset > 0 ? keyboardInset : insets.bottom;
+  const activeKeyboardInset =
+    Platform.OS === "ios" && durationOpen
+      ? Math.max(keyboardInset, menuKeyboardInset)
+      : keyboardInset;
+  const lift = activeKeyboardInset > 0 ? activeKeyboardInset : insets.bottom;
   const centered = Platform.OS === "web" && keyboardInset === 0;
 
   return (
@@ -100,71 +106,97 @@ export function InviteDialog({
         style={[
           styles.backdrop,
           centered ? styles.backdropCenter : styles.backdropSheet,
-          { paddingBottom: centered ? 28 : lift + 12 },
+          {
+            paddingTop: insets.top + 12,
+            paddingBottom: centered ? 28 : lift + 12,
+          },
         ]}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={busy ? undefined : onClose}
         />
-        <View style={[styles.card, durationOpen ? styles.cardLift : null]}>
+        <View style={styles.card}>
           <Text style={styles.title}>Invite</Text>
-          <TextInput
-            value={label}
-            onChangeText={setLabel}
-            placeholder="Invite label"
-            placeholderTextColor={color.muted}
-            maxLength={60}
-            returnKeyType="next"
-            editable={!busy}
-            accessibilityLabel="Invite label"
-            style={styles.input}
-          />
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            placeholder="Note (optional)"
-            placeholderTextColor={color.muted}
-            maxLength={240}
-            multiline
-            editable={!busy}
-            accessibilityLabel="Invite note"
-            style={[styles.input, styles.noteInput]}
-          />
-          <TextInput
-            value={inviterName}
-            onChangeText={setInviterName}
-            placeholder="Your name"
-            placeholderTextColor={color.muted}
-            maxLength={80}
-            autoComplete="name"
-            returnKeyType="next"
-            editable={!busy}
-            accessibilityLabel="Your name"
-            style={styles.input}
-          />
-          <TextInput
-            value={contact}
-            onChangeText={setContact}
-            placeholder="Phone or email"
-            placeholderTextColor={color.muted}
-            maxLength={80}
-            autoComplete="tel"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            returnKeyType="done"
-            editable={!busy}
-            accessibilityLabel="Phone or email"
-            style={styles.input}
-          />
-          <DurationField
-            value={ttl}
-            disabled={busy}
-            open={durationOpen}
-            onOpenChange={setDurationOpen}
-            onChange={setTtl}
-          />
-          {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+          <ScrollView
+            style={styles.fields}
+            contentContainerStyle={styles.fieldContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.labeledField}>
+              <Text style={styles.fieldLabel}>Who or what is it for?</Text>
+              <TextInput
+                value={label}
+                onChangeText={setLabel}
+                placeholder="Party later today or Jane Smith"
+                placeholderTextColor={color.muted}
+                maxLength={60}
+                returnKeyType="next"
+                editable={!busy}
+                accessibilityLabel="Who or what is it for?"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.labeledField}>
+              <Text style={styles.fieldLabel}>
+                Anything they should know? (optional)
+              </Text>
+              <TextInput
+                value={note}
+                onChangeText={setNote}
+                placeholder="Come up to the rooftop when you arrive."
+                placeholderTextColor={color.muted}
+                maxLength={240}
+                multiline
+                editable={!busy}
+                accessibilityLabel="Anything they should know? (optional)"
+                style={[styles.input, styles.noteInput]}
+              />
+            </View>
+            <View style={styles.labeledField}>
+              <Text style={styles.fieldLabel}>Your name</Text>
+              <TextInput
+                value={inviterName}
+                onChangeText={setInviterName}
+                placeholder="Alex Rivera"
+                placeholderTextColor={color.muted}
+                maxLength={80}
+                autoComplete="name"
+                returnKeyType="next"
+                editable={!busy}
+                accessibilityLabel="Your name"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.labeledField}>
+              <Text style={styles.fieldLabel}>Your phone or email</Text>
+              <TextInput
+                value={contact}
+                onChangeText={setContact}
+                placeholder="alex@example.com"
+                placeholderTextColor={color.muted}
+                maxLength={80}
+                autoComplete="tel"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                returnKeyType="done"
+                editable={!busy}
+                accessibilityLabel="Your phone or email"
+                style={styles.input}
+              />
+            </View>
+            <DurationField
+              value={ttl}
+              disabled={busy}
+              open={durationOpen}
+              onOpenChange={(open) => {
+                if (open) setMenuKeyboardInset(keyboardInset);
+                setDurationOpen(open);
+              }}
+              onChange={setTtl}
+            />
+            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+          </ScrollView>
           <View style={styles.actions}>
             <Pressable
               disabled={busy}
@@ -216,81 +248,54 @@ function DurationField({
 
   if (Platform.OS === "ios") {
     return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`How long, ${selected.label}`}
-        disabled={disabled}
-        onPress={() => {
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              title: "How long",
-              options: ["Cancel", ...DURATIONS.map((item) => item.label)],
-              cancelButtonIndex: 0,
-              userInterfaceStyle: "dark",
-            },
-            (index) => {
-              if (index === undefined || index === 0) {
-                return;
-              }
-              const next = DURATIONS[index - 1];
-              if (next !== undefined) {
-                onChange(next.ttl);
-              }
-            },
-          );
-        }}
-        style={({ pressed }) => [
-          styles.dropdown,
-          styles.dropdownTrigger,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <View style={styles.dropdownCopy}>
-          <Text style={styles.dropdownLabel}>How long</Text>
-          <Text style={styles.dropdownValue}>{selected.label}</Text>
-        </View>
-        <CaretDownIcon color={color.muted} size={18} weight="bold" />
-      </Pressable>
-    );
-  }
-
-  if (Platform.OS === "android") {
-    return (
-      <View style={styles.dropdown}>
-        <Text style={styles.nativeLabel}>How long</Text>
-        <Picker
-          enabled={!disabled}
-          selectedValue={value}
-          onValueChange={(next) => {
-            if (isKeyTtl(next)) {
-              onChange(next);
+      <View pointerEvents={disabled ? "none" : "auto"} style={styles.dropdown}>
+        <MenuView
+          title="How long"
+          themeVariant="dark"
+          shouldOpenOnLongPress={false}
+          onOpenMenu={() => onOpenChange(true)}
+          onCloseMenu={() => onOpenChange(false)}
+          actions={DURATIONS.map((item) => ({
+            id: item.ttl,
+            title: item.label,
+            state: item.ttl === value ? "on" : "off",
+            attributes: { disabled },
+          }))}
+          onPressAction={({ nativeEvent }) => {
+            const next = DURATIONS.find(
+              (item) => item.ttl === nativeEvent.event,
+            );
+            if (!disabled && next !== undefined) {
+              onChange(next.ttl);
             }
           }}
-          mode="dialog"
-          prompt="How long"
-          dropdownIconColor={color.muted}
-          style={styles.nativePicker}
         >
-          {DURATIONS.map((item) => (
-            <Picker.Item
-              key={item.ttl}
-              label={item.label}
-              value={item.ttl}
-              color={color.text}
-            />
-          ))}
-        </Picker>
+          <View
+            accessibilityRole="button"
+            accessibilityLabel={`How long, ${selected.label}`}
+            accessibilityState={{ disabled }}
+            style={styles.dropdownTrigger}
+          >
+            <View style={styles.dropdownCopy}>
+              <Text style={styles.dropdownLabel}>How long</Text>
+              <Text style={styles.dropdownValue}>{selected.label}</Text>
+            </View>
+            <CaretDownIcon color={color.muted} size={18} weight="bold" />
+          </View>
+        </MenuView>
       </View>
     );
   }
 
   return (
-    <View style={[styles.dropdown, open ? styles.dropdownOpen : null]}>
+    <View style={styles.dropdown}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`How long, ${selected.label}`}
+        accessibilityState={{ expanded: open, disabled }}
         disabled={disabled}
         onPress={() => {
+          Keyboard.dismiss();
           onOpenChange(!open);
         }}
         style={({ pressed }) => [
@@ -309,6 +314,10 @@ function DurationField({
           {DURATIONS.map((item) => (
             <Pressable
               key={item.ttl}
+              accessibilityRole="radio"
+              accessibilityLabel={item.label}
+              accessibilityState={{ checked: item.ttl === value, disabled }}
+              disabled={disabled}
               onPress={() => {
                 onChange(item.ttl);
                 onOpenChange(false);
@@ -326,12 +335,6 @@ function DurationField({
         </View>
       ) : null}
     </View>
-  );
-}
-
-function isKeyTtl(value: unknown): value is KeyTtl {
-  return (
-    typeof value === "string" && (KEY_TTLS as readonly string[]).includes(value)
   );
 }
 
@@ -374,16 +377,29 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 360,
+    maxHeight: "100%",
+    flexShrink: 1,
     borderRadius: 20,
     backgroundColor: color.surface,
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 14,
     gap: 8,
-    overflow: "visible",
   },
-  cardLift: {
-    zIndex: 4,
+  fields: {
+    flexShrink: 1,
+  },
+  fieldContent: {
+    gap: 8,
+  },
+  labeledField: {
+    gap: 6,
+  },
+  fieldLabel: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+    paddingHorizontal: 4,
   },
   title: {
     color: color.text,
@@ -413,44 +429,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: color.fill,
   },
-  dropdownOpen: {
-    zIndex: 6,
-  },
   menu: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
     marginTop: 4,
     borderRadius: 14,
     backgroundColor: color.well,
     overflow: "hidden",
-    zIndex: 7,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.35,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-      },
-      android: {
-        elevation: 12,
-      },
-      default: {
-        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.45)",
-      },
-    }),
-  },
-  nativeLabel: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 12,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-  },
-  nativePicker: {
-    color: color.text,
-    marginHorizontal: 2,
   },
   dropdownTrigger: {
     minHeight: 48,

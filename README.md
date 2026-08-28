@@ -1,4 +1,4 @@
-# Latch
+# LatchMX
 
 Personal ButterflyMX client. First cut: one slider per door. Splash unlock is later.
 

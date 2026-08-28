@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: color.overlay,
   },
   sheet: {
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.canvas,
   },
   loading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: color.canvas,

@@ -4,8 +4,6 @@ import { StyleSheet, View } from 'react-native';
 
 import { color } from '@/lib/theme';
 
-const HERO_H = 200;
-
 type BuildingHeroProps = {
   uri?: string;
 };
@@ -43,14 +41,13 @@ export function BuildingHero({ uri }: BuildingHeroProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     pointerEvents: 'none',
   },
   image: {
-    width: '100%',
-    height: HERO_H,
+    ...StyleSheet.absoluteFill,
   },
   gradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });

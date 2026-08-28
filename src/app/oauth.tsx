@@ -6,7 +6,7 @@ import { FlapLoader } from '@/components/flap-loader';
 import { PageTitle } from '@/components/page-title';
 import { StatusScreen } from '@/components/status-screen';
 import { useSession } from '@/lib/session';
-import { latchTitle } from '@/lib/title';
+import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function OAuthRedirect() {
@@ -59,7 +59,7 @@ export default function OAuthRedirect() {
             }}
             hitSlop={8}
           >
-            <Text style={styles.link}>Back to Latch</Text>
+            <Text style={styles.link}>Back to {APP_NAME}</Text>
           </Pressable>
         </StatusScreen>
       </View>

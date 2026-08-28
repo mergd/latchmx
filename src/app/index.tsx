@@ -1,7 +1,7 @@
 import { router, usePathname } from 'expo-router';
 import { ArrowCounterClockwiseIcon, GearSixIcon, KeyIcon, ListIcon } from 'phosphor-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -10,8 +10,10 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import Sortable from 'react-native-sortables';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppShell } from '@/components/app-shell';
+import { AppMark } from '@/components/app-mark';
 import { BuildingHero } from '@/components/building-hero';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DeadKey } from '@/components/dead-key';
@@ -26,7 +28,7 @@ import { StickyBuildingHeader } from '@/components/sticky-building-header';
 import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
 import { approxRemaining } from '@/lib/expiry';
 import { useSession } from '@/lib/session';
-import { latchTitle } from '@/lib/title';
+import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, groupInk, type } from '@/lib/theme';
 import {
   differsFromBaseLayout,
@@ -34,8 +36,6 @@ import {
   layoutForDoors,
   userHiddenDoors,
 } from '@/lib/zones';
-
-import loginVisual from '../../assets/brand/login-visual.png';
 
 export default function BuildingScreen() {
   const { mode, bootError, guestExpiresAt } = useSession();
@@ -65,17 +65,12 @@ export default function BuildingScreen() {
 
   if (mode === 'signed_out') {
     return (
-      <AppShell
-        background={
-          <Image
-            source={loginVisual}
-            style={styles.loginVisual}
-            resizeMode="cover"
-            accessibilityLabel="Latch mark"
-          />
-        }
-      >
+      <AppShell>
         <PageTitle title={latchTitle('Sign in')} />
+        <View style={styles.loginIdentity}>
+          <AppMark />
+          <Text style={styles.loginTitle}>{APP_NAME}</Text>
+        </View>
         <View style={styles.loginDock}>
           {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
           <SignInForm />
@@ -97,6 +92,7 @@ export default function BuildingScreen() {
 }
 
 function SignedInHome() {
+  const { top: topInset } = useSafeAreaInsets();
   const {
     doors,
     buildingName,
@@ -160,7 +156,7 @@ function SignedInHome() {
   }, [guest, guestExpiresAt]);
 
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
-  const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : 'Latch');
+  const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : APP_NAME);
   const kicker = guest
     ? (layout.address ?? guestKicker(guestExpiresAt, now))
     : arranging
@@ -189,14 +185,14 @@ function SignedInHome() {
   const stickyStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       scrollY.value,
-      [heroH.value - 84, heroH.value - 32],
+      [heroH.value - topInset - 84, heroH.value - topInset - 32],
       [0, 1],
       Extrapolation.CLAMP,
     ),
   }));
 
   const syncPinnedSection = (y: number) => {
-    const pin = y + 76;
+    const pin = y + topInset + 76;
     let next = pinTargets[0]?.label ?? '';
     for (const group of pinTargets) {
       const top = listYRef.current + (sectionYRef.current[group.id] ?? 0);
@@ -208,7 +204,7 @@ function SignedInHome() {
       sectionRef.current = next;
       setSection(next);
     }
-    const pinned = y > heroHRef.current - 48;
+    const pinned = y > heroHRef.current - topInset - 48;
     if (pinned !== pinnedRef.current) {
       pinnedRef.current = pinned;
       setChromePinned(pinned);
@@ -216,7 +212,7 @@ function SignedInHome() {
   };
 
   return (
-    <AppShell>
+    <AppShell edgeToEdge>
       <PageTitle title={latchTitle(title)} />
       <Sortable.PortalProvider enabled={arranging}>
         <View style={styles.screen}>
@@ -225,6 +221,8 @@ function SignedInHome() {
               style={styles.scroller}
               contentContainerStyle={styles.scrollerContent}
               showsVerticalScrollIndicator={false}
+              contentInsetAdjustmentBehavior="never"
+              automaticallyAdjustContentInsets={false}
               scrollEventThrottle={16}
               onScroll={(event) => {
                 const y = event.nativeEvent.contentOffset.y;
@@ -233,7 +231,11 @@ function SignedInHome() {
               }}
             >
               <View
-                style={[styles.heroBlock, heroUri ? styles.heroBlockTall : null]}
+                style={[
+                  styles.heroBlock,
+                  { paddingTop: topInset },
+                  heroUri ? { minHeight: 200 + topInset } : null,
+                ]}
                 onLayout={(event) => {
                   const height = event.nativeEvent.layout.height;
                   heroH.value = height;
@@ -290,7 +292,7 @@ function SignedInHome() {
                   <View style={styles.empty}>
                     <Text style={styles.emptyTitle}>No doors yet</Text>
                     <Text style={styles.emptyBody}>
-                      Latch couldn’t find an unlockable door on this account.
+                      {APP_NAME} couldn’t find an unlockable door on this account.
                     </Text>
                     <Pressable
                       onPress={() => {
@@ -326,6 +328,7 @@ function SignedInHome() {
               sectionInk={pinnedInk}
               style={stickyStyle}
               interactive={chromePinned}
+              topInset={topInset}
               actions={
                 <BuildingActions
                   guest={guest}
@@ -425,10 +428,18 @@ function BuildingActions({
 }
 
 const styles = StyleSheet.create({
-  loginVisual: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
+  loginIdentity: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    padding: 24,
+  },
+  loginTitle: {
+    color: color.text,
+    fontFamily: type.title,
+    fontSize: 34,
+    lineHeight: 40,
   },
   loginDock: {
     marginTop: 'auto',
@@ -446,9 +457,6 @@ const styles = StyleSheet.create({
   heroBlock: {
     justifyContent: 'flex-end',
     overflow: 'hidden',
-  },
-  heroBlockTall: {
-    height: 200,
   },
   identity: {
     paddingHorizontal: 16,

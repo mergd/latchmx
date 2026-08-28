@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable as GesturePressable } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
@@ -263,7 +264,7 @@ function HideAction({
 
   return (
     <View style={styles.hideAction}>
-      <Pressable
+      <GesturePressable
         accessibilityRole="button"
         accessibilityLabel="Hide"
         onPress={onPress}
@@ -272,7 +273,7 @@ function HideAction({
         <Animated.Text style={[styles.hideActionLabel, labelStyle]}>
           Hide
         </Animated.Text>
-      </Pressable>
+      </GesturePressable>
     </View>
   );
 }

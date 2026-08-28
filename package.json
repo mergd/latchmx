@@ -7,6 +7,7 @@
     "@expo-google-fonts/outfit": "^0.4.3",
     "@mergd/butterflymx": "^0.1.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-menu/menu": "^2.0.0",
     "@react-native-picker/picker": "2.11.4",
     "expo": "~57.0.13",
     "expo-application": "~57.0.2",

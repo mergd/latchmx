@@ -1,4 +1,4 @@
-name: Deploy Latch
+name: Deploy LatchMX
 
 on:
   push:

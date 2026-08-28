@@ -8,7 +8,7 @@ const TOKEN = process.env.EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN ?? '';
 const HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://e.fldr.zip';
 
 const SUPER = {
-  product: 'latch',
+  product: 'latchmx',
   surface: Platform.OS === 'web' ? 'web' : Platform.OS,
   build: buildStamp(),
   version: build.version,

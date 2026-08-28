@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { openMapsSearch } from '@/lib/maps';
 import { storageGet, storageSet } from '@/lib/storage';
+import { APP_NAME } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 const INTRO_KEY = 'latch.guest-intro';
@@ -53,7 +54,7 @@ export function GuestWelcome({
           <Text style={styles.eyebrow}>Guest invite</Text>
           <Text style={styles.title}>You’re on a guest pass</Text>
           <Text style={styles.body}>
-            Latch opens the doors in this building. Tap one to unlock. No PIN. This
+            {APP_NAME} opens the doors in this building. Tap one to unlock. No PIN. This
             link dies when the clock runs out.
           </Text>
           {query !== null ? (

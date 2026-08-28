@@ -33,7 +33,7 @@ function gitIsDirty(): boolean {
 }
 
 const config: ExpoConfig = {
-  name: 'Latch',
+  name: 'LatchMX',
   slug: 'butterflymx',
   version: '1.0.0',
   orientation: 'portrait',

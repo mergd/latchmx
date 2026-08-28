@@ -1,5 +1,7 @@
 import { Platform, Share } from 'react-native';
 
+import { APP_NAME } from '@/lib/title';
+
 export async function shareText(
   value: string,
   title?: string,
@@ -17,7 +19,7 @@ export async function shareText(
       await navigator.share({
         url: value,
         text: title,
-        title: title ?? 'Latch',
+        title: title ?? APP_NAME,
       });
       return 'shared';
     } catch (error) {

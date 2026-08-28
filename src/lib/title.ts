@@ -1,10 +1,12 @@
+export const APP_NAME = 'LatchMX';
+
 export function latchTitle(page?: string): string {
   const trimmed = page?.trim() ?? '';
-  if (trimmed.length === 0 || trimmed === 'Latch') {
-    return 'Latch';
+  if (trimmed.length === 0 || trimmed === APP_NAME) {
+    return APP_NAME;
   }
-  if (/\bLatch\b/.test(trimmed)) {
+  if (trimmed.includes(APP_NAME)) {
     return trimmed;
   }
-  return `${trimmed} · Latch`;
+  return `${trimmed} · ${APP_NAME}`;
 }

@@ -13,7 +13,7 @@ import { build, buildStamp } from '@/lib/build';
 import { openFeedback } from '@/lib/feedback';
 import { hapticSuccess } from '@/lib/haptics';
 import { useSession } from '@/lib/session';
-import { latchTitle } from '@/lib/title';
+import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function SettingsScreen() {
@@ -122,7 +122,7 @@ export default function SettingsScreen() {
           style={({ pressed }) => [styles.build, pressed ? styles.buildPressed : null]}
         >
           <Text style={styles.buildName}>
-            Latch {build.version}
+            {APP_NAME} {build.version}
             {build.native !== null && build.native.length > 0 ? ` (${build.native})` : ''}
           </Text>
           <Text style={styles.buildHash}>{copied ? 'Copied' : buildStamp()}</Text>

@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: color.surface,
   },
   identity: {

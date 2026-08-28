@@ -5,6 +5,7 @@ import {
   releaseDoorOn,
 } from '../src/lib/bmx-doors';
 import { asRecord } from '../src/lib/bmx-json';
+import { APP_NAME } from '../src/lib/title';
 import { KEY_TTLS, type Door, type IssuedKey, type KeyTtl } from '../src/lib/types';
 
 import { randomToken, sha256Hex, unwrapString, wrapString } from './crypto';
@@ -172,7 +173,7 @@ async function guestSession(env: Env, secret: string) {
   const doors = filterDoors(snapshot.doors, record.doorIds);
   return {
     doors,
-    buildingName: doors[0]?.buildingName ?? snapshot.doors[0]?.buildingName ?? 'Latch',
+    buildingName: doors[0]?.buildingName ?? snapshot.doors[0]?.buildingName ?? APP_NAME,
     expiresAt: record.expiresAt,
     label: record.label ?? 'Guest invite',
     note: record.note ?? null,

@@ -13,7 +13,7 @@ import { InviteDialog } from '@/components/invite-dialog';
 import { approxRemaining, expiryCopy, expiryDialogBody } from '@/lib/expiry';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
-import { latchTitle } from '@/lib/title';
+import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
@@ -306,7 +306,7 @@ export default function KeysScreen() {
 function inviteShareText(key: IssuedKey, when: string): string {
   const from = key.inviterName === null ? '' : ` from ${key.inviterName}`;
   const reach = key.contact === null ? '' : ` Reach them at ${key.contact}.`;
-  return `${key.label}${from}. Latch access ends at ${when}.${reach}`;
+  return `${key.label}${from}. ${APP_NAME} access ends at ${when}.${reach}`;
 }
 
 function remainingLabel(expiresAt: number, now: number): string {

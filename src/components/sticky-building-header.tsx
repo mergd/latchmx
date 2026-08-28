@@ -11,6 +11,7 @@ type StickyBuildingHeaderProps = {
   style: object;
   actions?: ReactNode;
   interactive?: boolean;
+  topInset?: number;
 };
 
 export function StickyBuildingHeader({
@@ -20,11 +21,12 @@ export function StickyBuildingHeader({
   style,
   actions,
   interactive = false,
+  topInset = 0,
 }: StickyBuildingHeaderProps) {
   return (
     <Animated.View
       pointerEvents={interactive ? 'box-none' : 'none'}
-      style={[styles.wrap, style]}
+      style={[styles.wrap, { paddingTop: topInset + 6 }, style]}
     >
       <View style={styles.titleRow} pointerEvents="box-none">
         <Text style={styles.title} numberOfLines={1}>
@@ -49,7 +51,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
     backgroundColor: color.canvas,
-    paddingTop: 6,
     paddingBottom: 6,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -80,4 +81,3 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
-

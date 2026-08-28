@@ -1,10 +1,12 @@
 import { type ReactNode } from 'react';
 import { ScrollViewStyleReset } from 'expo-router/html';
 
-const ogTitle = 'Latch';
+import { APP_NAME } from '@/lib/title';
+
+const ogTitle = APP_NAME;
 const ogDescription = 'Personal building access.';
 const ogImage = 'https://bmx.fldr.zip/brand/og.png';
-const ogImageAlt = 'Latch mark on a cream field.';
+const ogImageAlt = `${APP_NAME} mark on a cream field.`;
 const ogUrl = 'https://bmx.fldr.zip/';
 
 export default function Root({ children }: { children: ReactNode }) {

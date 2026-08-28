@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
+import { APP_NAME } from '@/lib/title';
+
 import icon from '../../assets/images/icon.png';
 
 type AppMarkProps = {
@@ -13,7 +15,7 @@ export function AppMark({ size = 128 }: AppMarkProps) {
       source={icon}
       style={[styles.mark, { width: size, height: size, borderRadius: size * 0.22 }]}
       contentFit="cover"
-      accessibilityLabel="Latch"
+      accessibilityLabel={APP_NAME}
     />
   );
 }

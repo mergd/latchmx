@@ -32,10 +32,10 @@
     "shareCard": { "width": 1200, "height": 630, "safeInset": 72 }
   },
   "socialMetadata": {
-    "title": "Latch",
+    "title": "LatchMX",
     "description": "Personal building access.",
     "image": "/brand/og.png",
-    "imageAlt": "Latch mark on a cream field.",
+    "imageAlt": "LatchMX mark on a cream field.",
     "card": "summary_large_image",
     "url": "https://bmx.fldr.zip/"
   }

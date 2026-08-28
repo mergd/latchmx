@@ -14,6 +14,7 @@ import { StatusScreen } from '@/components/status-screen';
 import { AnalyticsProvider } from '@/lib/analytics-provider';
 import { slideInOut } from '@/lib/screen-slide';
 import { SessionProvider } from '@/lib/session';
+import { APP_NAME } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,13 +22,13 @@ SplashScreen.preventAutoHideAsync();
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   useEffect(() => {
     if (Platform.OS === 'web') {
-      document.title = 'Latch hit a snag';
+      document.title = `${APP_NAME} hit a snag`;
     }
   }, []);
 
   return (
     <View style={styles.errorScreen}>
-      <StatusScreen title="Latch hit a snag" body={error.message} tabTitle={false}>
+      <StatusScreen title={`${APP_NAME} hit a snag`} body={error.message} tabTitle={false}>
         <Pressable onPress={retry} style={styles.retry}>
           <Text style={styles.retryLabel}>Try again</Text>
         </Pressable>
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   frame: {
     flex: 1,
     width: '100%',
-    maxWidth: 430,
+    maxWidth: Platform.OS === 'web' ? 430 : undefined,
     overflow: 'hidden',
   },
   errorScreen: {
