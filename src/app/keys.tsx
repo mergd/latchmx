@@ -130,7 +130,8 @@ export default function KeysScreen() {
     }
   };
 
-  const live = (keys ?? []).filter((key) => now === 0 || key.expiresAt > now);
+  const clock = now === 0 ? Date.now() : now;
+  const live = (keys ?? []).filter((key) => key.expiresAt > clock);
   const signedIn = mode === 'signed_in';
   const loading = keys === null;
 
