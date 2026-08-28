@@ -50,6 +50,7 @@
     "wrangler": "^4.123.0"
   },
   "scripts": {
+    "test": "bun test ./tests/home-layout.test.mjs ./tests/demo.test.mjs && bun test ./tests/android-controls.cases.mjs && bun test ./tests/demo-session.cases.mjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

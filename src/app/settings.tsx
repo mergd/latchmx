@@ -17,7 +17,7 @@ import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function SettingsScreen() {
-  const { account, buildingName, mode, signOut } = useSession();
+  const { account, buildingName, mode, isDemo, signOut } = useSession();
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = account?.name?.trim() ?? '';
@@ -106,7 +106,7 @@ export default function SettingsScreen() {
         />
         {mode === 'signed_in' ? (
           <SettingsRow
-            label="Sign out"
+            label={isDemo ? 'Exit demo' : 'Sign out'}
             onPress={() => {
               setPendingSignOut(true);
             }}
@@ -130,9 +130,9 @@ export default function SettingsScreen() {
       </View>
       <ConfirmDialog
         visible={pendingSignOut}
-        title="Sign out?"
-        body="You’ll need a ButterflyMX authorization code to get back in."
-        confirmLabel="Sign out"
+        title={isDemo ? 'Exit demo?' : 'Sign out?'}
+        body={isDemo ? 'Your real account and door layout stay unchanged.' : 'You’ll need a ButterflyMX authorization code to get back in.'}
+        confirmLabel={isDemo ? 'Exit demo' : 'Sign out'}
         onCancel={() => {
           setPendingSignOut(false);
         }}

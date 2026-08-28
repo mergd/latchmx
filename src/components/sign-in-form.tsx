@@ -7,7 +7,7 @@ import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export function SignInForm() {
-  const { openSignIn, signInUrl, completeSignIn, canSignIn } = useSession();
+  const { openSignIn, signInUrl, completeSignIn, canSignIn, startDemo } = useSession();
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -68,6 +68,15 @@ export function SignInForm() {
       >
         <Text style={styles.primaryLabel}>{busy ? 'Signing in' : 'Sign in'}</Text>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Try demo"
+        disabled={busy || awaitingCode}
+        onPress={() => { void startDemo(); }}
+        style={styles.demo}
+      >
+        <Text style={styles.demoLabel}>Try demo</Text>
+      </Pressable>
       {web ? (
         <AuthCodeDialog
           visible={awaitingCode}
@@ -104,6 +113,16 @@ export function SignInForm() {
 const styles = StyleSheet.create({
   wrap: {
     gap: 8,
+  },
+  demo: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoLabel: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 15,
   },
   error: {
     color: color.bad,

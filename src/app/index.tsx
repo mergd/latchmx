@@ -94,6 +94,7 @@ export default function BuildingScreen() {
 function SignedInHome() {
   const { top: topInset } = useSafeAreaInsets();
   const {
+    isDemo,
     doors,
     buildingName,
     unlock,
@@ -345,6 +346,7 @@ function SignedInHome() {
             />
             {guest && guestSecret !== null && bootError === null ? (
               <GuestWelcome
+                demo={isDemo}
                 secret={guestSecret}
                 buildingName={title}
                 address={layout.address ?? null}

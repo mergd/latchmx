@@ -11,6 +11,7 @@ import { PageTitle } from '@/components/page-title';
 import { KeysSkeleton } from '@/components/skeleton';
 import { InviteDialog } from '@/components/invite-dialog';
 import { approxRemaining, expiryCopy, expiryDialogBody } from '@/lib/expiry';
+import { demoKeyPath } from '@/lib/demo';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
 import { APP_NAME, latchTitle } from '@/lib/title';
@@ -18,7 +19,7 @@ import { color, type } from '@/lib/theme';
 import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
 export default function KeysScreen() {
-  const { mode, account, createKey, listKeys, revokeKey } = useSession();
+  const { mode, account, isDemo, createKey, listKeys, revokeKey } = useSession();
   const [keys, setKeys] = useState<IssuedKey[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export default function KeysScreen() {
         /^Until /,
         '',
       );
-      const result = await shareText(next.url, inviteShareText(next, when));
+      const result = isDemo ? null : await shareText(next.url, inviteShareText(next, when));
       setComposing(false);
       setCreated(next);
       setCopied(result === 'copied');
@@ -157,6 +158,9 @@ export default function KeysScreen() {
           </View>
         </View>
 
+        {isDemo ? (
+          <Text style={styles.demoHint}>Demo invites work on this device only. Use Preview to try the guest experience.</Text>
+        ) : null}
         {signedIn ? (
           <View style={styles.create}>
             <Pressable
@@ -207,6 +211,11 @@ export default function KeysScreen() {
                   ) : null}
                 </View>
                 <View style={styles.rowActions}>
+                  {isDemo ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Preview ${key.label}`} onPress={() => router.push(demoKeyPath(key.id))} style={styles.rowAction}>
+                      <Text style={styles.copyLabel}>Preview</Text>
+                    </Pressable>
+                  ) : null}
                   {key.url !== null ? (
                     <Pressable
                       onPress={() => {
@@ -258,22 +267,30 @@ export default function KeysScreen() {
       />
       <ConfirmDialog
         visible={created !== null}
-        title="Invite is live"
+        title={isDemo ? 'Demo invite created' : 'Invite is live'}
         body={
           created === null
             ? ''
-            : copied
+            : isDemo
+              ? 'Preview the guest experience on this device. This invite cannot open real doors.'
+              : copied
               ? `Link copied. ${expiryCopy(created.expiresAt, now === 0 ? created.expiresAt : now).until.replace(/^Until /, 'Dies at ')}.`
               : expiryDialogBody(created.expiresAt, now === 0 ? created.expiresAt : now, created.url)
         }
         confirmLabel={
-          copied ? 'Done' : Platform.OS === 'web' ? 'Copy link' : 'Share again'
+          isDemo ? 'Preview invite' : copied ? 'Done' : Platform.OS === 'web' ? 'Copy link' : 'Share again'
         }
         onCancel={() => {
           setCreated(null);
           setCopied(false);
         }}
         onConfirm={() => {
+          if (isDemo && created !== null) {
+            const id = created.id;
+            setCreated(null);
+            router.push(demoKeyPath(id));
+            return;
+          }
           if (copied) {
             setCreated(null);
             setCopied(false);
@@ -291,7 +308,7 @@ export default function KeysScreen() {
       <ConfirmDialog
         visible={pendingRevoke !== null}
         title="Revoke this invite?"
-        body="The link dies immediately. Anyone holding it loses the doors."
+        body={isDemo ? 'This demo invite will stop working on this device.' : 'The link dies immediately. Anyone holding it loses the doors.'}
         confirmLabel="Revoke"
         onCancel={() => {
           setPendingRevoke(null);
@@ -348,6 +365,14 @@ const styles = StyleSheet.create({
   },
   create: {
     paddingHorizontal: 16,
+  },
+  demoHint: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   invite: {
     backgroundColor: color.accent,

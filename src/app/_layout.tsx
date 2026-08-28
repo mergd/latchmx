@@ -11,6 +11,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusScreen } from '@/components/status-screen';
+import { DemoNotice } from '@/components/demo-notice';
 import { AnalyticsProvider } from '@/lib/analytics-provider';
 import { slideInOut } from '@/lib/screen-slide';
 import { SessionProvider } from '@/lib/session';
@@ -55,6 +56,7 @@ export default function RootLayout() {
           <View style={styles.page}>
             <View style={styles.frame}>
               <AppStack />
+              <DemoNotice />
             </View>
           </View>
         </AnalyticsProvider>

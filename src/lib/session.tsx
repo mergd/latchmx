@@ -1,4 +1,5 @@
-import { usePathname } from 'expo-router';
+import { router, usePathname } from 'expo-router';
+import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -30,6 +31,8 @@ import {
   releaseDoor,
 } from '@/lib/bmx-api';
 import { bmxConfig, hasBmxCredentials } from '@/lib/config';
+import { createDemoStore, DEMO_ENABLED_STORAGE, isDemoSecret } from '@/lib/demo';
+import { mockAccount, mockBuildingName, mockDoors } from '@/lib/mock-building';
 import {
   createKey as createKeyRequest,
   fetchGuestSession,
@@ -63,13 +66,17 @@ import {
 } from '@/lib/zones';
 
 const TOKEN_KEY = 'latch.tokens';
-const ZONE_KEY = 'latch.zones';
-const LAYOUT_KEY = 'latch.layout';
-const HIDDEN_KEY = 'latch.hidden';
+const demoStore = createDemoStore(
+  { get: storageGet, set: storageSet },
+  () => Crypto.randomUUID(),
+  () => Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'latch://',
+);
 const SPLASH_FALLBACK_MS = 8000;
 const LOAD_DOORS_MS = 15_000;
 
 type SessionContextValue = {
+  isDemo: boolean;
+  startDemo: () => Promise<void>;
   mode: SessionMode;
   account: Account | null;
   doors: Door[];
@@ -122,6 +129,36 @@ type SessionContextValue = {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const [demo, setDemo] = useState<boolean | null>(null);
+  const guestSecret = useGuestSecret();
+  useEffect(() => {
+    void storageGet(DEMO_ENABLED_STORAGE).then(value => setDemo(value === 'true'));
+  }, []);
+  const startDemo = useCallback(async () => {
+    await storageSet(DEMO_ENABLED_STORAGE, 'true');
+    setDemo(true);
+    router.replace('/');
+  }, []);
+  const exitDemo = useCallback(async () => {
+    await storageRemove(DEMO_ENABLED_STORAGE);
+    setDemo(false);
+    router.replace('/');
+  }, []);
+  if (demo === null) return null;
+  const isDemo = guestSecret !== null ? isDemoSecret(guestSecret) : demo;
+  return (
+    <SessionState key={isDemo ? 'demo' : 'live'} demo={isDemo} startDemo={startDemo} exitDemo={exitDemo}>
+      {children}
+    </SessionState>
+  );
+}
+
+function SessionState({ children, demo, startDemo, exitDemo }: {
+  children: ReactNode; demo: boolean; startDemo: () => Promise<void>; exitDemo: () => Promise<void>;
+}) {
+  const ZONE_KEY = demo ? 'latch.demo.zones' : 'latch.zones';
+  const LAYOUT_KEY = demo ? 'latch.demo.layout' : 'latch.layout';
+  const HIDDEN_KEY = demo ? 'latch.demo.hidden' : 'latch.hidden';
   const [mode, setMode] = useState<SessionMode>('loading');
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -160,7 +197,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const loadGuest = useCallback(async (secret: string) => {
     const seq = bootSeq.current;
     try {
-      const snapshot = await fetchGuestSession(secret);
+      const snapshot = await (demo ? demoStore.guest(secret) : fetchGuestSession(secret));
       if (seq !== bootSeq.current) {
         return;
       }
@@ -170,6 +207,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setGuestInvite(snapshot.invite);
       setBootError(null);
       setMode('guest');
+      if (demo) {
+        setOpenUntilByDoorId({});
+        setAccount({ ...mockAccount, kind: 'guest', name: snapshot.invite.label });
+        return;
+      }
       const stored = await loadAccount();
       if (seq !== bootSeq.current) {
         return;
@@ -185,6 +227,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setGuestExpiresAt(null);
       setGuestInvite(null);
       setMode('guest');
+      if (demo) {
+        setAccount(null);
+        setBootError(error instanceof Error ? error.message : 'This key is dead.');
+        return;
+      }
       const stored = await loadAccount();
       if (seq !== bootSeq.current) {
         return;
@@ -196,9 +243,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       setBootError(error instanceof Error ? error.message : 'This key is dead.');
     }
-  }, []);
+  }, [demo]);
 
   const loadLiveDoors = useCallback(async (current: AuthTokens) => {
+    if (demo) return;
     const seq = bootSeq.current;
     const fresh = await ensureFreshTokens(current);
     if (seq !== bootSeq.current) {
@@ -226,7 +274,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const next = residentFromProfile(stored, snapshot.account, nextBuilding);
     setAccount(next);
     await persistAccount(next);
-  }, [persistTokens]);
+  }, [demo, persistTokens]);
 
   useEffect(() => {
     const seq = ++bootSeq.current;
@@ -237,11 +285,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const stored = await storageGet(TOKEN_KEY, { secure: true });
+        const stored = demo ? null : await storageGet(TOKEN_KEY, { secure: true });
         const storedZones = await storageGet(ZONE_KEY);
         const storedLayout = await storageGet(LAYOUT_KEY);
         const storedHidden = await storageGet(HIDDEN_KEY);
-        const storedAccount = await loadAccount();
+        const storedAccount = demo ? mockAccount : await loadAccount();
         if (seq !== bootSeq.current) {
           return;
         }
@@ -250,6 +298,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setHiddenByDoorId(parseHidden(storedHidden));
         if (storedAccount?.kind === 'resident') {
           setAccount(storedAccount);
+        }
+        if (demo) {
+          setDoors(mockDoors);
+          setBuildingName(mockBuildingName);
+          setGuestExpiresAt(null);
+          setGuestInvite(null);
+          setOpenUntilByDoorId({});
+          setBootError(null);
+          setMode('signed_in');
+          return;
         }
         const parsed = parseTokens(stored);
         if (parsed === null) {
@@ -302,14 +360,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         bootSeq.current += 1;
       }
     };
-  }, [guestSecret, loadGuest, loadLiveDoors]);
+  }, [demo, ZONE_KEY, LAYOUT_KEY, HIDDEN_KEY, guestSecret, loadGuest, loadLiveDoors]);
 
   useEffect(() => {
     if (guestSecret === null || mode !== 'guest' || bootError !== null) {
       return;
     }
     const check = () => {
-      void pingGuestSession(guestSecret).catch((error: unknown) => {
+      void (demo ? demoStore.guest(guestSecret) : pingGuestSession(guestSecret)).catch((error: unknown) => {
         if (!isDeadKeyError(error)) {
           return;
         }
@@ -342,7 +400,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         document.removeEventListener('visibilitychange', onVisible);
       }
     };
-  }, [bootError, guestSecret, mode]);
+  }, [bootError, demo, guestSecret, mode]);
 
   useEffect(() => {
     if (mode === 'loading') {
@@ -366,6 +424,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw new Error('This door is closed right now.');
       }
       if (door.heldOpen || (openUntilByDoorId[door.id] ?? 0) > Date.now()) {
+        return;
+      }
+      if (demo) {
+        await demoStore.unlock(door, guestSecret);
+        setOpenUntilByDoorId(current => ({ ...current, [door.id]: Date.now() + DOOR_OPEN_MS }));
         return;
       }
       if (guestSecret !== null) {
@@ -423,10 +486,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [guestSecret, openUntilByDoorId, persistTokens, tokens],
+    [demo, guestSecret, openUntilByDoorId, persistTokens, tokens],
   );
 
   const signOut = useCallback(async () => {
+    if (demo) {
+      await exitDemo();
+      return;
+    }
     capture('signed_out');
     resetAnalytics();
     await persistTokens(null);
@@ -437,7 +504,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setGuestInvite(null);
     setBootError(null);
     setMode('signed_out');
-  }, [persistTokens]);
+  }, [demo, exitDemo, persistTokens]);
 
   const signInUrl = useMemo(
     () => (hasBmxCredentials() ? authorizationUrl(bmxConfig.redirectUri) : ''),
@@ -462,6 +529,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const completeSignIn = useCallback(
     async (code: string) => {
+      if (demo) throw new Error('Exit demo before signing in.');
       const secret = extractAuthorizationCode(code);
       if (secret.length === 0) {
         throw new Error('Paste the authorization code from ButterflyMX.');
@@ -488,11 +556,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [loadLiveDoors, persistTokens],
+    [demo, loadLiveDoors, persistTokens],
   );
 
   useEffect(() => {
-    if (mode === 'loading' || guestSecret !== null) {
+    if (demo || mode === 'loading' || guestSecret !== null) {
       return;
     }
 
@@ -519,12 +587,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.remove();
     };
-  }, [completeSignIn, guestSecret, mode]);
+  }, [completeSignIn, demo, guestSecret, mode]);
 
   const persistArrangement = useCallback((next: DoorArrangement) => {
     setArrangement(next);
     void storageSet(LAYOUT_KEY, JSON.stringify(next));
-  }, []);
+  }, [LAYOUT_KEY]);
 
   const cycleDoorZone = useCallback((door: Door) => {
     setZoneByDoorId((current) => {
@@ -552,7 +620,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       });
       return next;
     });
-  }, []);
+  }, [LAYOUT_KEY, ZONE_KEY]);
 
   const reorderGroups = useCallback(
     (groupIds: string[]) => {
@@ -584,7 +652,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       void storageSet(HIDDEN_KEY, JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [HIDDEN_KEY]);
 
   const showDoor = useCallback((door: Door) => {
     setHiddenByDoorId((current) => {
@@ -596,7 +664,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       void storageSet(HIDDEN_KEY, JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [HIDDEN_KEY]);
 
   const hideDoors = useCallback((items: Door[]) => {
     setHiddenByDoorId((current) => {
@@ -607,7 +675,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       void storageSet(HIDDEN_KEY, JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [HIDDEN_KEY]);
 
   const resetLayout = useCallback(() => {
     persistArrangement(emptyArrangement);
@@ -615,7 +683,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setHiddenByDoorId({});
     void storageSet(ZONE_KEY, JSON.stringify({}));
     void storageSet(HIDDEN_KEY, JSON.stringify({}));
-  }, [persistArrangement]);
+  }, [HIDDEN_KEY, ZONE_KEY, persistArrangement]);
 
   const dropDoor = useCallback(
     (
@@ -645,12 +713,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ),
       );
     },
-    [arrangement, persistArrangement],
+    [ZONE_KEY, arrangement, persistArrangement],
   );
 
   const refreshDoors = useCallback(async () => {
     if (guestSecret !== null) {
       await loadGuest(guestSecret);
+      return;
+    }
+    if (demo) {
+      setDoors(mockDoors);
+      setBootError(null);
       return;
     }
     if (tokens === null || mode !== 'signed_in') {
@@ -663,7 +736,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         error instanceof Error ? error.message : 'Could not load your building.',
       );
     }
-  }, [guestSecret, loadGuest, loadLiveDoors, mode, tokens]);
+  }, [demo, guestSecret, loadGuest, loadLiveDoors, mode, tokens]);
 
   const createKey = useCallback(
     async ({
@@ -679,6 +752,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       inviterName: string;
       contact: string;
     }) => {
+      if (demo) {
+        if (guestSecret !== null) throw new Error('Return to the demo to create an invite.');
+        return demoStore.create({
+          ttl, label, note, inviterName: inviterName.trim() || mockAccount.name || '', contact,
+          doorIds: doors.filter(door => hiddenByDoorId[door.id] !== true).map(door => door.id),
+        });
+      }
       if (tokens === null) {
         throw new Error('Sign in to create a key.');
       }
@@ -706,10 +786,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       capture('key_created', { ttl, door_count: doorIds.length });
       return created;
     },
-    [account, doors, hiddenByDoorId, persistTokens, tokens],
+    [account, demo, guestSecret, doors, hiddenByDoorId, persistTokens, tokens],
   );
 
   const listKeys = useCallback(async () => {
+    if (demo) return guestSecret === null ? demoStore.list() : [];
     if (tokens === null) {
       throw new Error('Sign in to see keys.');
     }
@@ -718,10 +799,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await persistTokens(fresh);
     }
     return listKeysRequest(fresh.accessToken);
-  }, [persistTokens, tokens]);
+  }, [demo, guestSecret, persistTokens, tokens]);
 
   const revokeKey = useCallback(
     async (keyId: string) => {
+      if (demo) {
+        if (guestSecret !== null) throw new Error('Return to the demo to revoke an invite.');
+        return demoStore.revoke(keyId);
+      }
       if (tokens === null) {
         throw new Error('Sign in to revoke a key.');
       }
@@ -732,18 +817,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await revokeKeyRequest(fresh.accessToken, keyId);
       capture('key_revoked');
     },
-    [persistTokens, tokens],
+    [demo, guestSecret, persistTokens, tokens],
   );
 
   const value = useMemo<SessionContextValue>(
     () => {
-      const live = Array.isArray(doors)
-        ? { doors, account }
-        : unpackLiveBuilding(doors);
+      const liveDoors = Array.isArray(doors) ? doors : unpackLiveBuilding(doors).doors;
       return {
+        isDemo: demo,
+        startDemo,
         mode,
-        account: live.account,
-        doors: live.doors,
+        account,
+        doors: liveDoors,
         buildingName,
         canSignIn: hasBmxCredentials(),
         bootError,
@@ -774,6 +859,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       };
     },
     [
+      demo,
+      startDemo,
       account,
       buildingName,
       bootError,
@@ -904,17 +991,7 @@ function parseHidden(raw: string | null): Record<string, boolean> {
 
 function useGuestSecret(): string | null {
   const pathname = usePathname();
-  const fromRouter = /^\/k\/([^/]+)$/.exec(pathname);
-  if (fromRouter?.[1] !== undefined) {
-    return fromRouter[1];
-  }
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const fromWindow = /^\/k\/([^/]+)$/.exec(window.location.pathname);
-    if (fromWindow?.[1] !== undefined) {
-      return fromWindow[1];
-    }
-  }
-  return null;
+  return /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {

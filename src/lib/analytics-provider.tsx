@@ -6,6 +6,8 @@ import { getPosthog } from '@/lib/analytics';
 import { useSession } from '@/lib/session';
 
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
+  const { isDemo } = useSession();
+  if (isDemo) return children;
   const posthog = getPosthog();
   if (posthog === null) {
     return children;

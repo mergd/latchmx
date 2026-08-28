@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { openMapsSearch } from '@/lib/maps';
@@ -9,6 +10,7 @@ import { color, type } from '@/lib/theme';
 const INTRO_KEY = 'latch.guest-intro';
 
 type GuestWelcomeProps = {
+  demo?: boolean;
   secret: string;
   buildingName: string;
   address: string | null;
@@ -16,17 +18,25 @@ type GuestWelcomeProps = {
 };
 
 export function GuestWelcome({
+  demo = false,
   secret,
   buildingName,
   address,
   mapsQuery,
 }: GuestWelcomeProps) {
   const [visible, setVisible] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const introKey = demo ? 'latch.demo.guest-intro' : INTRO_KEY;
   const query = mapsQuery ?? (address !== null ? `${buildingName}, ${address}` : null);
+
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    return () => setFocused(false);
+  }, []));
 
   useEffect(() => {
     let cancelled = false;
-    void storageGet(INTRO_KEY).then((seen) => {
+    void storageGet(introKey).then((seen) => {
       if (cancelled || seen === secret) {
         return;
       }
@@ -35,27 +45,25 @@ export function GuestWelcome({
     return () => {
       cancelled = true;
     };
-  }, [secret]);
+  }, [introKey, secret]);
 
   const dismiss = () => {
     setVisible(false);
-    void storageSet(INTRO_KEY, secret);
+    void storageSet(introKey, secret);
   };
 
   return (
     <Modal
-      visible={visible}
+      visible={visible && focused}
       transparent
       animationType="fade"
       onRequestClose={dismiss}
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.eyebrow}>Guest invite</Text>
-          <Text style={styles.title}>You’re on a guest pass</Text>
+          <Text style={styles.title}>{demo ? 'Try a guest pass' : 'You’re on a guest pass'}</Text>
           <Text style={styles.body}>
-            {APP_NAME} opens the doors in this building. Tap one to unlock. No PIN. This
-            link dies when the clock runs out.
+            {demo ? 'This is a demo invite. Tap a door to simulate unlocking. No real doors open, and this link only works on this device.' : `${APP_NAME} opens the doors in this building. Tap one to unlock. No PIN. This link dies when the clock runs out.`}
           </Text>
           {query !== null ? (
             <Pressable
@@ -110,13 +118,6 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 16,
     gap: 10,
-  },
-  eyebrow: {
-    color: color.accent,
-    fontFamily: type.body,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   title: {
     color: color.text,
