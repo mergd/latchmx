@@ -4,7 +4,6 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { openMapsSearch } from '@/lib/maps';
 import { storageGet, storageSet } from '@/lib/storage';
-import { APP_NAME } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 const INTRO_KEY = 'latch.guest-intro';
@@ -12,6 +11,7 @@ const INTRO_KEY = 'latch.guest-intro';
 type GuestWelcomeProps = {
   demo?: boolean;
   secret: string;
+  hostName: string | null;
   buildingName: string;
   address: string | null;
   mapsQuery: string | null;
@@ -20,6 +20,7 @@ type GuestWelcomeProps = {
 export function GuestWelcome({
   demo = false,
   secret,
+  hostName,
   buildingName,
   address,
   mapsQuery,
@@ -61,9 +62,11 @@ export function GuestWelcome({
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.title}>{demo ? 'Try a guest pass' : 'You’re on a guest pass'}</Text>
+          <Text style={styles.title}>{welcomeTitle(hostName, demo)}</Text>
           <Text style={styles.body}>
-            {demo ? 'This is a demo invite. Tap a door to simulate unlocking. No real doors open, and this link only works on this device.' : `${APP_NAME} opens the doors in this building. Tap one to unlock. No PIN. This link dies when the clock runs out.`}
+            {demo
+              ? 'Tap a door to try it. Nothing real opens, and this only works on this device.'
+              : 'Tap a door to unlock. The invite expires on its own.'}
           </Text>
           {query !== null ? (
             <Pressable
@@ -99,6 +102,14 @@ export function GuestWelcome({
       </View>
     </Modal>
   );
+}
+
+function welcomeTitle(hostName: string | null, demo: boolean): string {
+  const host = hostName?.trim() ?? '';
+  if (host.length > 0) {
+    return `${host} is inviting you`;
+  }
+  return demo ? 'Try a guest pass' : "You're invited";
 }
 
 const styles = StyleSheet.create({

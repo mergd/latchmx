@@ -69,7 +69,10 @@ test('expired invites cannot load or unlock', async () => {
   const keys = JSON.parse(data.get(DEMO_KEYS_STORAGE));
   keys[0].expiresAt = Date.now() - 1;
   data.set(DEMO_KEYS_STORAGE, JSON.stringify(keys));
-  expect(await store.list()).toEqual([]);
+  const expired = await store.list();
+  expect(expired).toHaveLength(1);
+  expect(expired[0]?.id).toBe(created.id);
+  expect(expired[0]?.expiresAt).toBeLessThan(Date.now());
   await expect(store.guest(created.id)).rejects.toThrow('This key is dead.');
   await expect(store.unlock(mockDoors[0], created.id)).rejects.toThrow('This key is dead.');
 });

@@ -21,7 +21,6 @@ export function GuestBanner({ invite, expiresLabel }: GuestBannerProps) {
 
   return (
     <View style={styles.banner}>
-      <Text style={styles.kicker}>Guest invite</Text>
       {bits.length > 0 ? <Text style={styles.meta}>{bits.join(' · ')}</Text> : null}
       {contact.length > 0 ? (
         href !== null ? (
@@ -54,13 +53,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: color.surface,
     gap: 4,
-  },
-  kicker: {
-    color: color.accent,
-    fontFamily: type.body,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   meta: {
     color: color.text,

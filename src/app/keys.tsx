@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import { CaretLeftIcon } from 'phosphor-react-native';
+import { CaretDownIcon, CaretLeftIcon } from 'phosphor-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -14,12 +14,12 @@ import { approxRemaining, expiryCopy, expiryDialogBody } from '@/lib/expiry';
 import { demoKeyPath } from '@/lib/demo';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
-import { APP_NAME, latchTitle } from '@/lib/title';
+import { latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
 export default function KeysScreen() {
-  const { mode, account, isDemo, createKey, listKeys, revokeKey } = useSession();
+  const { mode, account, isDemo, buildingName, createKey, listKeys, revokeKey } = useSession();
   const [keys, setKeys] = useState<IssuedKey[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +29,7 @@ export default function KeysScreen() {
   const [pendingRevoke, setPendingRevoke] = useState<IssuedKey | null>(null);
   const [now, setNow] = useState(0);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const next = await listKeys();
@@ -75,11 +76,9 @@ export default function KeysScreen() {
     try {
       const next = await createKey(input);
       await refresh();
-      const when = expiryCopy(next.expiresAt, next.createdAt).until.replace(
-        /^Until /,
-        '',
-      );
-      const result = isDemo ? null : await shareText(next.url, inviteShareText(next, when));
+      const result = isDemo
+        ? null
+        : await shareText(next.url, inviteShareText(buildingName, next.expiresAt, next.createdAt));
       setComposing(false);
       setCreated(next);
       setCopied(result === 'copied');
@@ -94,11 +93,10 @@ export default function KeysScreen() {
     if (created === null) {
       return;
     }
-    const when = expiryCopy(
-      created.expiresAt,
-      now === 0 ? created.createdAt : now,
-    ).until.replace(/^Until /, '');
-    const result = await shareText(created.url, inviteShareText(created, when));
+    const result = await shareText(
+      created.url,
+      inviteShareText(buildingName, created.expiresAt, now === 0 ? created.createdAt : now),
+    );
     if (result === 'copied') {
       setCopied(true);
     }
@@ -133,6 +131,9 @@ export default function KeysScreen() {
 
   const clock = now === 0 ? Date.now() : now;
   const live = (keys ?? []).filter((key) => key.expiresAt > clock);
+  const expired = (keys ?? [])
+    .filter((key) => key.expiresAt <= clock)
+    .sort((left, right) => right.expiresAt - left.expiresAt);
   const signedIn = mode === 'signed_in';
   const loading = keys === null;
 
@@ -192,61 +193,67 @@ export default function KeysScreen() {
             <Text style={styles.empty}>No live invites.</Text>
           ) : (
             live.map((key) => (
-              <View key={key.id} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>{key.label}</Text>
-                  <Text style={styles.rowHint}>
-                    {remainingLabel(key.expiresAt, now)} ·{' '}
-                    {key.doorCount > 0 ? `${key.doorCount} doors` : 'All doors'}
-                  </Text>
-                  {key.contact !== null ? (
-                    <Text style={styles.rowNote} numberOfLines={1}>
-                      {key.contact}
-                    </Text>
-                  ) : null}
-                  {key.note !== null ? (
-                    <Text style={styles.rowNote} numberOfLines={2}>
-                      {key.note}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.rowActions}>
-                  {isDemo ? (
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Preview ${key.label}`} onPress={() => router.push(demoKeyPath(key.id))} style={styles.rowAction}>
-                      <Text style={styles.copyLabel}>Preview</Text>
-                    </Pressable>
-                  ) : null}
-                  {key.url !== null ? (
-                    <Pressable
-                      onPress={() => {
-                        void onCopy(key);
-                      }}
-                      style={({ pressed }) => [
-                        styles.rowAction,
-                        pressed ? styles.invitePressed : null,
-                      ]}
-                    >
-                      <Text style={styles.copyLabel}>
-                        {copiedKeyId === key.id ? 'Copied' : 'Copy'}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  <Pressable
-                    onPress={() => {
-                      setPendingRevoke(key);
-                    }}
-                    style={({ pressed }) => [
-                      styles.rowAction,
-                      pressed ? styles.invitePressed : null,
-                    ]}
-                  >
-                    <Text style={styles.revokeLabel}>Revoke</Text>
-                  </Pressable>
-                </View>
-              </View>
+              <InviteRow
+                key={key.id}
+                invite={key}
+                clock={clock}
+                isDemo={isDemo}
+                copied={copiedKeyId === key.id}
+                onCopy={() => {
+                  void onCopy(key);
+                }}
+                onPreview={() => {
+                  router.push(demoKeyPath(key.id));
+                }}
+                onRevoke={() => {
+                  setPendingRevoke(key);
+                }}
+              />
             ))
           )}
         </View>
+        {!loading && expired.length > 0 ? (
+          <View style={styles.list}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                expiredOpen
+                  ? 'Hide expired invites'
+                  : `Show ${expired.length} expired ${expired.length === 1 ? 'invite' : 'invites'}`
+              }
+              onPress={() => {
+                setExpiredOpen((open) => !open);
+              }}
+              style={({ pressed }) => [
+                styles.fold,
+                pressed ? styles.invitePressed : null,
+              ]}
+            >
+              <Text style={styles.section}>Expired</Text>
+              <View style={styles.foldMeta}>
+                <Text style={styles.foldCount}>{expired.length}</Text>
+                <View style={expiredOpen ? styles.foldCaretOpen : null}>
+                  <CaretDownIcon color={color.muted} size={16} weight="bold" />
+                </View>
+              </View>
+            </Pressable>
+            {expiredOpen
+              ? expired.map((key) => (
+                  <InviteRow
+                    key={key.id}
+                    invite={key}
+                    clock={clock}
+                    expired
+                    isDemo={isDemo}
+                    copied={false}
+                    onRevoke={() => {
+                      setPendingRevoke(key);
+                    }}
+                  />
+                ))
+              : null}
+          </View>
+        ) : null}
       </ScrollView>
 
       <InviteDialog
@@ -321,10 +328,88 @@ export default function KeysScreen() {
   );
 }
 
-function inviteShareText(key: IssuedKey, when: string): string {
-  const from = key.inviterName === null ? '' : ` from ${key.inviterName}`;
-  const reach = key.contact === null ? '' : ` Reach them at ${key.contact}.`;
-  return `${key.label}${from}. ${APP_NAME} access ends at ${when}.${reach}`;
+function InviteRow({
+  invite,
+  clock,
+  expired = false,
+  isDemo,
+  copied,
+  onCopy,
+  onPreview,
+  onRevoke,
+}: {
+  invite: IssuedKey;
+  clock: number;
+  expired?: boolean;
+  isDemo: boolean;
+  copied: boolean;
+  onCopy?: () => void;
+  onPreview?: () => void;
+  onRevoke: () => void;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, expired ? styles.rowTitleExpired : null]}>
+          {invite.label}
+        </Text>
+        <Text style={styles.rowHint}>
+          {remainingLabel(invite.expiresAt, clock)} ·{' '}
+          {invite.doorCount > 0 ? `${invite.doorCount} doors` : 'All doors'}
+        </Text>
+      </View>
+      <View style={styles.rowActions}>
+        {!expired && isDemo && onPreview !== undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Preview ${invite.label}`}
+            onPress={onPreview}
+            style={styles.rowAction}
+          >
+            <Text style={styles.copyLabel}>Preview</Text>
+          </Pressable>
+        ) : null}
+        {!expired && invite.url !== null && onCopy !== undefined ? (
+          <Pressable
+            onPress={onCopy}
+            style={({ pressed }) => [
+              styles.rowAction,
+              pressed ? styles.invitePressed : null,
+            ]}
+          >
+            <Text style={styles.copyLabel}>{copied ? 'Copied' : 'Copy'}</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onRevoke}
+          style={({ pressed }) => [
+            styles.rowAction,
+            pressed ? styles.invitePressed : null,
+          ]}
+        >
+          <Text style={styles.revokeLabel}>Revoke</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function inviteShareText(buildingName: string, expiresAt: number, now: number): string {
+  const place = buildingName.trim() || 'the building';
+  return `Here's my invite to ${place} - it expires in ${expiresInCopy(expiresAt, now)}`;
+}
+
+function expiresInCopy(expiresAt: number, now: number): string {
+  const left = expiresAt - now;
+  if (left <= 0) {
+    return 'a moment';
+  }
+  if (left < 90 * 60_000) {
+    const minutes = Math.max(1, Math.round(left / 60_000));
+    return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+  }
+  const hours = Math.max(1, Math.round(left / 3_600_000));
+  return hours === 1 ? '1 hour' : `${hours} hours`;
 }
 
 function remainingLabel(expiresAt: number, now: number): string {
@@ -401,6 +486,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 10,
   },
+  fold: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+    cursor: 'pointer',
+  },
+  foldMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingRight: 4,
+  },
+  foldCount: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 13,
+  },
+  foldCaretOpen: {
+    transform: [{ rotate: '180deg' }],
+  },
   section: {
     color: color.muted,
     fontFamily: type.body,
@@ -432,17 +538,13 @@ const styles = StyleSheet.create({
     fontFamily: type.body,
     fontSize: 16,
   },
+  rowTitleExpired: {
+    color: color.muted,
+  },
   rowHint: {
     color: color.muted,
     fontFamily: type.body,
     fontSize: 13,
-  },
-  rowNote: {
-    marginTop: 4,
-    color: color.text,
-    fontFamily: type.body,
-    fontSize: 13,
-    lineHeight: 18,
   },
   rowActions: {
     flexDirection: 'row',

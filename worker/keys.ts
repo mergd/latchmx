@@ -82,13 +82,9 @@ async function listKeys(env: Env, accessToken: string): Promise<IssuedKey[]> {
   const ownerIdValue = await ownerId(env, accessToken);
   const ids = await listOwnerKeyIds(env, ownerIdValue);
   const records = await Promise.all(ids.map((id) => getKey(env, id)));
-  const now = Date.now();
   return Promise.all(
     records
-      .filter(
-        (record): record is KeyRecord =>
-          record !== null && !record.revoked && record.expiresAt > now,
-      )
+      .filter((record): record is KeyRecord => record !== null && !record.revoked)
       .map(async (record) => toIssued(record, await urlForRecord(env, record))),
   );
 }
@@ -112,8 +108,8 @@ async function createKey(
   const contact = parseText(body?.contact, 80);
   const client = createDirectBmxClient(accessToken, { baseUrl: env.BMX_API_ORIGIN });
   const ownerIdValue = await ownerIdFromClient(client);
-  const live = await listKeys(env, accessToken);
-  if (live.length >= MAX_LIVE_KEYS) {
+  const listed = await listKeys(env, accessToken);
+  if (listed.filter((key) => key.expiresAt > Date.now()).length >= MAX_LIVE_KEYS) {
     throw new HttpError(400, 'Revoke an old key before making another.');
   }
 

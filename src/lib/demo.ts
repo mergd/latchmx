@@ -88,7 +88,7 @@ export function createDemoStore(storage: DemoStorage, uuid: () => string, origin
     },
     async list(): Promise<CreatedKey[]> {
       await writes;
-      return (await read()).filter(key => !key.revoked && key.expiresAt > Date.now());
+      return (await read()).filter(key => !key.revoked);
     },
     async revoke(id: string): Promise<void> {
       await update(keys => {

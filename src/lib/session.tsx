@@ -989,9 +989,22 @@ function parseHidden(raw: string | null): Record<string, boolean> {
   }
 }
 
+function guestSecretFromPath(pathname: string): string | null {
+  return /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
+}
+
 function useGuestSecret(): string | null {
   const pathname = usePathname();
-  return /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
+  const fromPath = guestSecretFromPath(pathname);
+  const held = useRef<string | null>(fromPath);
+
+  if (fromPath !== null) {
+    held.current = fromPath;
+  } else if (pathname !== '/settings') {
+    held.current = null;
+  }
+
+  return fromPath ?? held.current;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {

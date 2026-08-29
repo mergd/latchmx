@@ -348,6 +348,7 @@ function SignedInHome() {
               <GuestWelcome
                 demo={isDemo}
                 secret={guestSecret}
+                hostName={guestInvite?.inviterName ?? null}
                 buildingName={title}
                 address={layout.address ?? null}
                 mapsQuery={layout.mapsQuery ?? null}

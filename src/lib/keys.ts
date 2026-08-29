@@ -48,10 +48,9 @@ export async function listKeys(accessToken: string): Promise<IssuedKey[]> {
   if (!Array.isArray(payload)) {
     return [];
   }
-  const now = Date.now();
   return payload
     .map(parseIssued)
-    .filter((key): key is IssuedKey => key !== null && !key.revoked && key.expiresAt > now);
+    .filter((key): key is IssuedKey => key !== null && !key.revoked);
 }
 
 export async function revokeKey(
