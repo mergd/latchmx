@@ -8,7 +8,7 @@ import { color, type } from '@/lib/theme';
 export function DemoNotice() {
   const { isDemo, signOut, startDemo } = useSession();
   const path = usePathname();
-  if (!isDemo) return null;
+  if (!isDemo || path === '/privacy' || path === '/delete-data') return null;
   const guest = path.startsWith('/k/');
   return (
     <SafeAreaView edges={['bottom']} style={styles.safe}>
