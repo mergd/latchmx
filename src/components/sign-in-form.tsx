@@ -3,10 +3,13 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthCodeDialog } from '@/components/auth-code-dialog';
 import { AuthLoginDrawer } from '@/components/auth-login-drawer';
+import { errorText } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export function SignInForm() {
+  const { t } = useI18n();
   const { openSignIn, signInUrl, completeSignIn, canSignIn, startDemo } = useSession();
   const [busy, setBusy] = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false);
@@ -19,7 +22,7 @@ export function SignInForm() {
       await openSignIn();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : 'Could not open ButterflyMX.',
+        errorText(error, 'errors.openButterfly'),
       );
     }
   }, [openSignIn]);
@@ -35,7 +38,7 @@ export function SignInForm() {
         if (!web) {
           setAwaitingCode(false);
         }
-        setMessage(error instanceof Error ? error.message : 'Sign-in failed.');
+        setMessage(errorText(error, 'errors.signInFailedShort'));
       } finally {
         setBusy(false);
       }
@@ -50,12 +53,12 @@ export function SignInForm() {
       ) : null}
       {!canSignIn ? (
         <Text style={styles.error}>
-          This build isn’t set up for ButterflyMX sign-in.
+          {t('auth.notConfigured')}
         </Text>
       ) : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in"
+        accessibilityLabel={t('auth.signIn')}
         style={[styles.primary, !canSignIn ? styles.primaryDisabled : null]}
         onPress={() => {
           if (!canSignIn) {
@@ -66,16 +69,16 @@ export function SignInForm() {
         }}
         disabled={!canSignIn || busy}
       >
-        <Text style={styles.primaryLabel}>{busy ? 'Signing in' : 'Sign in'}</Text>
+        <Text style={styles.primaryLabel}>{busy ? t('auth.signingIn') : t('auth.signIn')}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Try demo"
+        accessibilityLabel={t('auth.tryDemo')}
         disabled={busy || awaitingCode}
         onPress={() => { void startDemo(); }}
         style={styles.demo}
       >
-        <Text style={styles.demoLabel}>Try demo</Text>
+        <Text style={styles.demoLabel}>{t('auth.tryDemo')}</Text>
       </Pressable>
       {web ? (
         <AuthCodeDialog

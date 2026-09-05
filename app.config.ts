@@ -57,7 +57,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'dev.fldr.latch',
-    versionCode: 2,
+    versionCode: 3,
     adaptiveIcon: {
       backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -72,6 +72,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    [
+      'expo-localization',
+      {
+        supportedLocales: ['en', 'es', 'pt', 'zh-Hans', 'hi', 'ne'],
+      },
+    ],
     [
       'expo-splash-screen',
       {

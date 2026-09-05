@@ -2,10 +2,12 @@ import { router, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { color, type } from '@/lib/theme';
 
 export function DemoNotice() {
+  const { t } = useI18n();
   const { isDemo, signOut, startDemo } = useSession();
   const path = usePathname();
   if (!isDemo || path === '/privacy' || path === '/delete-data') return null;
@@ -13,14 +15,14 @@ export function DemoNotice() {
   return (
     <SafeAreaView edges={['bottom']} style={styles.safe}>
       <View style={styles.row}>
-        <Text style={styles.text}>Demo only. No real doors open.</Text>
+        <Text style={styles.text}>{t('guest.demoNotice')}</Text>
         {guest ? (
           <Pressable accessibilityRole="button" onPress={() => { void startDemo().then(() => router.replace('/keys')); }} style={styles.action}>
-            <Text style={styles.link}>Back to invites</Text>
+            <Text style={styles.link}>{t('guest.backToInvites')}</Text>
           </Pressable>
         ) : (
           <Pressable accessibilityRole="button" onPress={() => { void signOut(); }} style={styles.action}>
-            <Text style={styles.link}>Exit demo</Text>
+            <Text style={styles.link}>{t('auth.exitDemo')}</Text>
           </Pressable>
         )}
       </View>

@@ -71,6 +71,57 @@ mock.module("../src/lib/haptics", () => ({
 mock.module("../src/lib/bmx-api", () => ({
   authorizationCodeFromUrl: () => null,
 }));
+const copy = {
+  "invite.title": "Invite",
+  "invite.forLabel": "Who or what is it for?",
+  "invite.forPlaceholder": "Party later today or Jane Smith",
+  "invite.noteLabel": "Anything they should know? (optional)",
+  "invite.notePlaceholder": "Come up to the rooftop when you arrive.",
+  "invite.nameLabel": "Your name",
+  "invite.contactLabel": "Your phone or email",
+  "invite.howLong": "How long",
+  "invite.howLongValue": "How long, %{label}",
+  "invite.inviting": "Inviting…",
+  "invite.hour1": "1 hour",
+  "invite.hour1Hint": "For someone on the way",
+  "invite.tonight": "Tonight",
+  "invite.tonightHint": "Dies at midnight",
+  "invite.tonightHintPacific": "Dies at midnight Pacific",
+  "invite.hours24": "24 hours",
+  "invite.hours24Hint": "Overnight, then gone",
+  "common.hide": "Hide",
+  "common.cancel": "Cancel",
+};
+const translate = (key, options = {}) =>
+  Object.entries(options).reduce(
+    (value, [name, part]) => value.replaceAll(`%{${name}}`, String(part)),
+    copy[key] ?? key,
+  );
+mock.module("../src/lib/i18n", () => ({
+  t: translate,
+  activeLocale: () => "en",
+  localeTag: () => "en-US",
+  setActiveLocale: () => {},
+  localizeError: (message) => message,
+  errorText: (error, fallback) =>
+    error instanceof Error ? error.message : fallback,
+  displayBuildingName: (name) => name,
+  displayInviteLabel: (label) => label,
+  isKeyDeadCopy: (value) => /this key is dead/i.test(value),
+  isSessionExpiredCopy: (value) => /session expired/i.test(value),
+  formatLocaleDate: (value, options) =>
+    new Date(value).toLocaleDateString("en-US", options),
+  formatLocaleTime: (value, options) =>
+    new Date(value).toLocaleTimeString("en-US", options),
+}));
+mock.module("../src/lib/i18n/context", () => ({
+  useI18n: () => ({
+    t: translate,
+    locale: "en",
+    preference: "system",
+    setPreference: () => {},
+  }),
+}));
 
 const { InviteDialog } = await import("../src/components/invite-dialog");
 const { DoorRow } = await import("../src/components/door-button");

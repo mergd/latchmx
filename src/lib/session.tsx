@@ -1,7 +1,6 @@
 import { router, usePathname } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
-import * as SplashScreen from 'expo-splash-screen';
 import {
   createContext,
   useCallback,
@@ -71,7 +70,6 @@ const demoStore = createDemoStore(
   () => Crypto.randomUUID(),
   () => Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'latch://',
 );
-const SPLASH_FALLBACK_MS = 8000;
 const LOAD_DOORS_MS = 15_000;
 
 type SessionContextValue = {
@@ -401,22 +399,6 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
       }
     };
   }, [bootError, demo, guestSecret, mode]);
-
-  useEffect(() => {
-    if (mode === 'loading') {
-      return;
-    }
-    void SplashScreen.hideAsync();
-  }, [mode]);
-
-  useEffect(() => {
-    const id = setTimeout(() => {
-      void SplashScreen.hideAsync();
-    }, SPLASH_FALLBACK_MS);
-    return () => {
-      clearTimeout(id);
-    };
-  }, []);
 
   const unlock = useCallback(
     async (door: Door) => {

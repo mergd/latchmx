@@ -12,6 +12,8 @@ import { HoursDialog } from '@/components/hours-dialog';
 import { TimerCircle } from '@/components/timer-circle';
 import { hoursStatus, scheduleLines } from '@/lib/door-hours';
 import { hapticError, hapticImpact, hapticSuccess } from '@/lib/haptics';
+import { isSessionExpiredCopy, t } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { color, type } from '@/lib/theme';
 import { DOOR_OPEN_MS, type Door, type UnlockStatus } from '@/lib/types';
 
@@ -38,8 +40,9 @@ export function DoorRow({
   onHide,
   onReveal,
 }: DoorRowProps) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<UnlockStatus>('idle');
-  const [failLabel, setFailLabel] = useState('Couldn’t open');
+  const [failLabel, setFailLabel] = useState(() => t('doors.couldntOpen'));
   const [now, setNow] = useState(0);
   const [hoursOpen, setHoursOpen] = useState(false);
   const timedOpen = openUntil !== null && openUntil > now;
@@ -111,13 +114,13 @@ export function DoorRow({
       })
       .catch(async (error) => {
         const expired =
-          error instanceof Error && /session expired/i.test(error.message);
+          error instanceof Error && isSessionExpiredCopy(error.message);
         setStatus('error');
-        setFailLabel(expired ? 'Session expired' : 'Couldn’t open');
+        setFailLabel(expired ? t('doors.sessionExpired') : t('doors.couldntOpen'));
         await hapticError();
         setTimeout(() => {
           setStatus('idle');
-          setFailLabel('Couldn’t open');
+          setFailLabel(t('doors.couldntOpen'));
         }, expired ? 2800 : 1400);
       });
   };
@@ -154,13 +157,13 @@ export function DoorRow({
             accessibilityRole="button"
             accessibilityHint={
               revealing
-                ? 'Show this door again'
+                ? t('doors.showAgain')
                 : closed
                   ? hoursHint === null
-                    ? 'Closed right now'
-                    : `Closed. ${hoursHint}`
+                    ? t('doors.closedNow')
+                    : t('doors.closedHint', { hint: hoursHint })
                   : canSwipe
-                    ? 'Swipe right, then tap Hide'
+                    ? t('doors.swipeHide')
                     : undefined
             }
             onPress={onPress}
@@ -190,7 +193,7 @@ export function DoorRow({
       ) : propped ? (
         <Pressable
           accessibilityRole="image"
-          accessibilityLabel="Open"
+          accessibilityLabel={t('doors.open')}
           disabled={door.hours.length === 0}
           onPress={showHours}
           style={({ pressed }) => [
@@ -201,7 +204,7 @@ export function DoorRow({
           <LockSimpleOpenIcon color={color.muted} size={18} weight="regular" />
         </Pressable>
       ) : closed ? (
-        <Text style={styles.open}>Closed</Text>
+        <Text style={styles.open}>{t('doors.closed')}</Text>
       ) : null}
     </View>
   );
@@ -257,6 +260,7 @@ function HideAction({
   progress: SharedValue<number>;
   onPress: () => void;
 }) {
+  const { t } = useI18n();
   const labelStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.55, 1], [0, 0.7, 1]),
     transform: [{ translateX: interpolate(progress.value, [0, 1], [-16, 0]) }],
@@ -266,12 +270,12 @@ function HideAction({
     <View style={styles.hideAction}>
       <GesturePressable
         accessibilityRole="button"
-        accessibilityLabel="Hide"
+        accessibilityLabel={t('common.hide')}
         onPress={onPress}
         style={styles.hideHit}
       >
         <Animated.Text style={[styles.hideActionLabel, labelStyle]}>
-          Hide
+          {t('common.hide')}
         </Animated.Text>
       </GesturePressable>
     </View>
@@ -288,7 +292,7 @@ function labelFor(
     case 'idle':
       return name;
     case 'unlocking':
-      return 'Opening…';
+      return t('doors.opening');
     case 'open':
       return name;
     case 'error':

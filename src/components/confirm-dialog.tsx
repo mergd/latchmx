@@ -1,5 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useI18n } from '@/lib/i18n/context';
 import { color, type } from '@/lib/theme';
 
 type ConfirmDialogProps = {
@@ -19,6 +20,7 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   return (
     <Modal
       visible={visible}
@@ -35,7 +37,7 @@ export function ConfirmDialog({
               style={({ pressed }) => [styles.btn, pressed ? styles.btnPressed : null]}
               onPress={onCancel}
             >
-              <Text style={styles.btnLabel}>Cancel</Text>
+              <Text style={styles.btnLabel}>{t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [

@@ -81,6 +81,11 @@ mock.module('../src/lib/account', () => ({
   guestFromInvite: () => realAccount,
 }));
 mock.module('../src/lib/analytics', () => ({ capture: record('capture'), resetAnalytics: record('resetAnalytics') }));
+mock.module('../src/lib/i18n', () => ({
+  t: (key) => key,
+  localizeError: (message) => message,
+  errorText: (error, fallback) => (error instanceof Error ? error.message : fallback),
+}));
 mock.module('../src/lib/config', () => ({ bmxConfig: { redirectUri: 'latch://oauth' }, hasBmxCredentials: () => true }));
 mock.module('../src/lib/bmx-api', () => ({
   authorizationUrl: () => 'https://example.com/login',

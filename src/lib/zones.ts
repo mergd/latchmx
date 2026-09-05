@@ -1,11 +1,11 @@
 import {
   OTHER_GROUP_ID,
-  OTHER_GROUP_LABEL,
   buildings,
   fallbackBuilding,
   type BuildingConfig,
   type DoorGroupConfig,
 } from '@/config/buildings';
+import { t } from '@/lib/i18n';
 import type { Door } from '@/lib/types';
 
 export type DoorGroup = {
@@ -86,10 +86,10 @@ export function groupCycle(door: Door): string[] {
 
 export function groupLabel(door: Door, groupId: string): string {
   if (groupId === OTHER_GROUP_ID) {
-    return OTHER_GROUP_LABEL;
+    return t('home.other');
   }
   const group = layoutForDoor(door).groups.find((item) => item.id === groupId);
-  return group?.label ?? OTHER_GROUP_LABEL;
+  return group?.label ?? t('home.other');
 }
 
 export function isHiddenDoor(
@@ -157,7 +157,7 @@ export function groupDoors(
   const layout = sample ? layoutForDoor(sample) : fallbackBuilding;
   const specs: { id: string; label: string }[] = [
     ...layout.groups.map((group) => ({ id: group.id, label: group.label })),
-    { id: OTHER_GROUP_ID, label: OTHER_GROUP_LABEL },
+    { id: OTHER_GROUP_ID, label: t('home.other') },
   ];
   const buckets = new Map<string, Door[]>();
   for (const spec of specs) {

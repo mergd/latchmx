@@ -25,8 +25,10 @@ import { PageTitle } from '@/components/page-title';
 import { HomeSkeleton } from '@/components/skeleton';
 import { SignInForm } from '@/components/sign-in-form';
 import { StickyBuildingHeader } from '@/components/sticky-building-header';
-import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL, fallbackBuilding } from '@/config/buildings';
+import { HIDDEN_GROUP_ID, fallbackBuilding } from '@/config/buildings';
 import { approxRemaining } from '@/lib/expiry';
+import { displayBuildingName, localizeError, t } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, groupInk, type } from '@/lib/theme';
@@ -38,6 +40,7 @@ import {
 } from '@/lib/zones';
 
 export default function BuildingScreen() {
+  const { t } = useI18n();
   const { mode, bootError, guestExpiresAt } = useSession();
   const [now, setNow] = useState(0);
 
@@ -66,13 +69,15 @@ export default function BuildingScreen() {
   if (mode === 'signed_out') {
     return (
       <AppShell>
-        <PageTitle title={latchTitle('Sign in')} />
+        <PageTitle title={latchTitle(t('home.signInTitle'))} />
         <View style={styles.loginIdentity}>
           <AppMark />
           <Text style={styles.loginTitle}>{APP_NAME}</Text>
         </View>
         <View style={styles.loginDock}>
-          {bootError !== null ? <Text style={styles.error}>{bootError}</Text> : null}
+          {bootError !== null ? (
+            <Text style={styles.error}>{localizeError(bootError)}</Text>
+          ) : null}
           <SignInForm />
         </View>
       </AppShell>
@@ -92,6 +97,7 @@ export default function BuildingScreen() {
 }
 
 function SignedInHome() {
+  const { t } = useI18n();
   const { top: topInset } = useSafeAreaInsets();
   const {
     isDemo,
@@ -157,11 +163,13 @@ function SignedInHome() {
   }, [guest, guestExpiresAt]);
 
   const heroUri = layout.hero?.uri ?? fallbackBuilding.hero?.uri;
-  const title = layout.displayName ?? (buildingName.length > 0 ? buildingName : APP_NAME);
+  const title =
+    layout.displayName ??
+    (buildingName.length > 0 ? displayBuildingName(buildingName) : APP_NAME);
   const kicker = guest
     ? (layout.address ?? guestKicker(guestExpiresAt, now))
     : arranging
-      ? 'Drag sections to reorder'
+      ? t('home.dragSections')
       : (layout.address ?? '');
   const empty = groups.length === 0 && hidden.length === 0;
   const pinTargets = useMemo(() => {
@@ -173,7 +181,7 @@ function SignedInHome() {
     if (hidden.length > 0) {
       items.push({
         id: HIDDEN_GROUP_ID,
-        label: HIDDEN_GROUP_LABEL,
+        label: t('home.hidden'),
         ink: groupInk(groups.length),
       });
     }
@@ -264,14 +272,14 @@ function SignedInHome() {
                   {kicker.length > 0 ? <Text style={styles.kicker}>{kicker}</Text> : null}
                   {bootError !== null ? (
                     <View style={styles.errorRow}>
-                      <Text style={styles.error}>{bootError}</Text>
+                      <Text style={styles.error}>{localizeError(bootError)}</Text>
                       <Pressable
                         onPress={() => {
                           void refreshDoors();
                         }}
                         hitSlop={8}
                       >
-                        <Text style={styles.retry}>Retry</Text>
+                        <Text style={styles.retry}>{t('common.retry')}</Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -291,9 +299,9 @@ function SignedInHome() {
               >
                 {empty && bootError === null ? (
                   <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>No doors yet</Text>
+                    <Text style={styles.emptyTitle}>{t('home.noDoors')}</Text>
                     <Text style={styles.emptyBody}>
-                      {APP_NAME} couldn’t find an unlockable door on this account.
+                      {t('home.noDoorsBody', { name: APP_NAME })}
                     </Text>
                     <Pressable
                       onPress={() => {
@@ -301,7 +309,7 @@ function SignedInHome() {
                       }}
                       style={styles.emptyRetry}
                     >
-                      <Text style={styles.retry}>Retry</Text>
+                      <Text style={styles.retry}>{t('common.retry')}</Text>
                     </Pressable>
                   </View>
                 ) : empty ? null : (
@@ -356,9 +364,9 @@ function SignedInHome() {
             ) : null}
             <ConfirmDialog
               visible={pendingReset}
-              title="Reset this layout?"
-              body="Doors go back to the building’s default order, and anything you hid comes back."
-              confirmLabel="Reset"
+              title={t('home.resetLayoutTitle')}
+              body={t('home.resetLayoutBody')}
+              confirmLabel={t('home.reset')}
               onCancel={() => {
                 setPendingReset(false);
               }}
@@ -375,11 +383,11 @@ function SignedInHome() {
 
 function guestKicker(expiresAt: number | null, now: number): string {
   if (expiresAt === null || now === 0) {
-    return 'Guest access';
+    return t('home.guestAccess');
   }
   const left = expiresAt - now;
   if (left <= 0) {
-    return 'This key expired';
+    return t('home.keyExpired');
   }
   return approxRemaining(left);
 }
@@ -397,15 +405,16 @@ function BuildingActions({
   onToggleArrange: () => void;
   onReset: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <View style={styles.toolbar}>
       {guest ? null : arranging && canReset ? (
-        <IconButton icon={ArrowCounterClockwiseIcon} label="Reset order" onPress={onReset} />
+        <IconButton icon={ArrowCounterClockwiseIcon} label={t('home.resetOrder')} onPress={onReset} />
       ) : null}
       {guest ? null : (
         <IconButton
           icon={ListIcon}
-          label={arranging ? 'Done arranging' : 'Arrange sections'}
+          label={arranging ? t('home.doneArranging') : t('home.arrange')}
           active={arranging}
           onPress={onToggleArrange}
         />
@@ -413,7 +422,7 @@ function BuildingActions({
       {guest ? null : (
         <IconButton
           icon={KeyIcon}
-          label="Keys"
+          label={t('home.keys')}
           onPress={() => {
             router.push('/keys');
           }}
@@ -421,7 +430,7 @@ function BuildingActions({
       )}
       <IconButton
         icon={GearSixIcon}
-        label="Settings"
+        label={t('common.settings')}
         onPress={() => {
           router.push('/settings');
         }}

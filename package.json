@@ -29,6 +29,7 @@
     "expo-symbols": "~57.0.2",
     "expo-system-ui": "~57.0.2",
     "expo-web-browser": "~57.0.2",
+    "i18n-js": "^4.5.3",
     "phosphor-react-native": "^3.0.6",
     "posthog-react-native": "^4.63.5",
     "react": "19.2.3",
@@ -50,7 +51,7 @@
     "wrangler": "^4.123.0"
   },
   "scripts": {
-    "test": "bun test ./tests/home-layout.test.mjs ./tests/demo.test.mjs && bun test ./tests/android-controls.cases.mjs && bun test ./tests/demo-session.cases.mjs",
+    "test": "bun test ./tests/home-layout.test.mjs ./tests/demo.test.mjs && bun test ./tests/android-controls.cases.mjs && bun test ./tests/demo-session.cases.mjs && bun test ./tests/startup.cases.mjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

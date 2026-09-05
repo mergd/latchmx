@@ -14,14 +14,18 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { t } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/context";
 import { color, type } from "@/lib/theme";
 import { type KeyTtl } from "@/lib/types";
 
-const DURATIONS: { ttl: KeyTtl; label: string; hint: string }[] = [
-  { ttl: "1h", label: "1 hour", hint: "For someone on the way" },
-  { ttl: "tonight", label: "Tonight", hint: "Dies at midnight" },
-  { ttl: "24h", label: "24 hours", hint: "Overnight, then gone" },
-];
+function durations(): { ttl: KeyTtl; label: string; hint: string }[] {
+  return [
+    { ttl: "1h", label: t("invite.hour1"), hint: t("invite.hour1Hint") },
+    { ttl: "tonight", label: t("invite.tonight"), hint: t("invite.tonightHint") },
+    { ttl: "24h", label: t("invite.hours24"), hint: t("invite.hours24Hint") },
+  ];
+}
 
 type InviteDialogProps = {
   visible: boolean;
@@ -48,6 +52,7 @@ export function InviteDialog({
   onClose,
   onCreate,
 }: InviteDialogProps) {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const [ttl, setTtl] = useState<KeyTtl>("1h");
   const [label, setLabel] = useState("");
@@ -117,44 +122,42 @@ export function InviteDialog({
           onPress={busy ? undefined : onClose}
         />
         <View style={styles.card}>
-          <Text style={styles.title}>Invite</Text>
+          <Text style={styles.title}>{t("invite.title")}</Text>
           <ScrollView
             style={styles.fields}
             contentContainerStyle={styles.fieldContent}
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.labeledField}>
-              <Text style={styles.fieldLabel}>Who or what is it for?</Text>
+              <Text style={styles.fieldLabel}>{t("invite.forLabel")}</Text>
               <TextInput
                 value={label}
                 onChangeText={setLabel}
-                placeholder="Party later today or Jane Smith"
+                placeholder={t("invite.forPlaceholder")}
                 placeholderTextColor={color.muted}
                 maxLength={60}
                 returnKeyType="next"
                 editable={!busy}
-                accessibilityLabel="Who or what is it for?"
+                accessibilityLabel={t("invite.forLabel")}
                 style={styles.input}
               />
             </View>
             <View style={styles.labeledField}>
-              <Text style={styles.fieldLabel}>
-                Anything they should know? (optional)
-              </Text>
+              <Text style={styles.fieldLabel}>{t("invite.noteLabel")}</Text>
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="Come up to the rooftop when you arrive."
+                placeholder={t("invite.notePlaceholder")}
                 placeholderTextColor={color.muted}
                 maxLength={240}
                 multiline
                 editable={!busy}
-                accessibilityLabel="Anything they should know? (optional)"
+                accessibilityLabel={t("invite.noteLabel")}
                 style={[styles.input, styles.noteInput]}
               />
             </View>
             <View style={styles.labeledField}>
-              <Text style={styles.fieldLabel}>Your name</Text>
+              <Text style={styles.fieldLabel}>{t("invite.nameLabel")}</Text>
               <TextInput
                 value={inviterName}
                 onChangeText={setInviterName}
@@ -164,12 +167,12 @@ export function InviteDialog({
                 autoComplete="name"
                 returnKeyType="next"
                 editable={!busy}
-                accessibilityLabel="Your name"
+                accessibilityLabel={t("invite.nameLabel")}
                 style={styles.input}
               />
             </View>
             <View style={styles.labeledField}>
-              <Text style={styles.fieldLabel}>Your phone or email</Text>
+              <Text style={styles.fieldLabel}>{t("invite.contactLabel")}</Text>
               <TextInput
                 value={contact}
                 onChangeText={setContact}
@@ -181,7 +184,7 @@ export function InviteDialog({
                 autoCapitalize="none"
                 returnKeyType="done"
                 editable={!busy}
-                accessibilityLabel="Your phone or email"
+                accessibilityLabel={t("invite.contactLabel")}
                 style={styles.input}
               />
             </View>
@@ -206,7 +209,7 @@ export function InviteDialog({
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Text style={styles.cancelLabel}>Cancel</Text>
+              <Text style={styles.cancelLabel}>{t("common.cancel")}</Text>
             </Pressable>
             <Pressable
               disabled={busy}
@@ -221,7 +224,7 @@ export function InviteDialog({
               ]}
             >
               <Text style={styles.submitLabel}>
-                {busy ? "Inviting…" : "Invite"}
+                {busy ? t("invite.inviting") : t("invite.title")}
               </Text>
             </Pressable>
           </View>
@@ -244,25 +247,27 @@ function DurationField({
   onOpenChange: (open: boolean) => void;
   onChange: (ttl: KeyTtl) => void;
 }) {
+  const { t } = useI18n();
+  const options = durations();
   const selected = durationFor(value);
 
   if (Platform.OS === "ios") {
     return (
       <View pointerEvents={disabled ? "none" : "auto"} style={styles.dropdown}>
         <MenuView
-          title="How long"
+          title={t("invite.howLong")}
           themeVariant="dark"
           shouldOpenOnLongPress={false}
           onOpenMenu={() => onOpenChange(true)}
           onCloseMenu={() => onOpenChange(false)}
-          actions={DURATIONS.map((item) => ({
+          actions={options.map((item) => ({
             id: item.ttl,
             title: item.label,
             state: item.ttl === value ? "on" : "off",
             attributes: { disabled },
           }))}
           onPressAction={({ nativeEvent }) => {
-            const next = DURATIONS.find(
+            const next = options.find(
               (item) => item.ttl === nativeEvent.event,
             );
             if (!disabled && next !== undefined) {
@@ -272,12 +277,12 @@ function DurationField({
         >
           <View
             accessibilityRole="button"
-            accessibilityLabel={`How long, ${selected.label}`}
+            accessibilityLabel={t("invite.howLongValue", { label: selected.label })}
             accessibilityState={{ disabled }}
             style={styles.dropdownTrigger}
           >
             <View style={styles.dropdownCopy}>
-              <Text style={styles.dropdownLabel}>How long</Text>
+              <Text style={styles.dropdownLabel}>{t("invite.howLong")}</Text>
               <Text style={styles.dropdownValue}>{selected.label}</Text>
             </View>
             <CaretDownIcon color={color.muted} size={18} weight="bold" />
@@ -291,7 +296,7 @@ function DurationField({
     <View style={styles.dropdown}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`How long, ${selected.label}`}
+        accessibilityLabel={t("invite.howLongValue", { label: selected.label })}
         accessibilityState={{ expanded: open, disabled }}
         disabled={disabled}
         onPress={() => {
@@ -304,14 +309,14 @@ function DurationField({
         ]}
       >
         <View style={styles.dropdownCopy}>
-          <Text style={styles.dropdownLabel}>How long</Text>
+          <Text style={styles.dropdownLabel}>{t("invite.howLong")}</Text>
           <Text style={styles.dropdownValue}>{selected.label}</Text>
         </View>
         <CaretDownIcon color={color.muted} size={18} weight="bold" />
       </Pressable>
       {open ? (
         <View style={styles.menu}>
-          {DURATIONS.map((item) => (
+          {options.map((item) => (
             <Pressable
               key={item.ttl}
               accessibilityRole="radio"
@@ -345,15 +350,15 @@ function durationFor(ttl: KeyTtl): {
 } {
   switch (ttl) {
     case "1h":
-      return { ttl: "1h", label: "1 hour", hint: "For someone on the way" };
+      return { ttl: "1h", label: t("invite.hour1"), hint: t("invite.hour1Hint") };
     case "tonight":
       return {
         ttl: "tonight",
-        label: "Tonight",
-        hint: "Dies at midnight Pacific",
+        label: t("invite.tonight"),
+        hint: t("invite.tonightHintPacific"),
       };
     case "24h":
-      return { ttl: "24h", label: "24 hours", hint: "Overnight, then gone" };
+      return { ttl: "24h", label: t("invite.hours24"), hint: t("invite.hours24Hint") };
     default: {
       const _never: never = ttl;
       return _never;

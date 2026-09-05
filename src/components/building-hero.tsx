@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
+import { t } from '@/lib/i18n';
 import { color } from '@/lib/theme';
 
 type BuildingHeroProps = {
@@ -24,7 +25,7 @@ export function BuildingHero({ uri }: BuildingHeroProps) {
         priority="high"
         transition={200}
         recyclingKey={uri}
-        accessibilityLabel="Building"
+        accessibilityLabel={t('home.building')}
       />
       <LinearGradient
         colors={[

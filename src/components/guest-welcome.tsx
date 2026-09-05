@@ -2,6 +2,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { openMapsSearch } from '@/lib/maps';
 import { storageGet, storageSet } from '@/lib/storage';
 import { color, type } from '@/lib/theme';
@@ -25,6 +27,7 @@ export function GuestWelcome({
   address,
   mapsQuery,
 }: GuestWelcomeProps) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const introKey = demo ? 'latch.demo.guest-intro' : INTRO_KEY;
@@ -64,14 +67,12 @@ export function GuestWelcome({
         <View style={styles.card}>
           <Text style={styles.title}>{welcomeTitle(hostName, demo)}</Text>
           <Text style={styles.body}>
-            {demo
-              ? 'Tap a door to try it. Nothing real opens, and this only works on this device.'
-              : 'Tap a door to unlock. The invite expires on its own.'}
+            {demo ? t('guest.tapDemo') : t('guest.tapUnlock')}
           </Text>
           {query !== null ? (
             <Pressable
               accessibilityRole="link"
-              accessibilityLabel={`Open ${buildingName} in maps`}
+              accessibilityLabel={t('guest.openBuildingMaps', { building: buildingName })}
               onPress={() => {
                 void openMapsSearch(query);
               }}
@@ -84,19 +85,19 @@ export function GuestWelcome({
               {address !== null ? (
                 <Text style={styles.placeAddress}>{address}</Text>
               ) : null}
-              <Text style={styles.placeLink}>Open in Maps</Text>
+              <Text style={styles.placeLink}>{t('guest.openInMaps')}</Text>
             </Pressable>
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Got it"
+            accessibilityLabel={t('guest.gotIt')}
             onPress={dismiss}
             style={({ pressed }) => [
               styles.done,
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.doneLabel}>Got it</Text>
+            <Text style={styles.doneLabel}>{t('guest.gotIt')}</Text>
           </Pressable>
         </View>
       </View>
@@ -107,9 +108,9 @@ export function GuestWelcome({
 function welcomeTitle(hostName: string | null, demo: boolean): string {
   const host = hostName?.trim() ?? '';
   if (host.length > 0) {
-    return `${host} is inviting you`;
+    return t('guest.hostInviting', { name: host });
   }
-  return demo ? 'Try a guest pass' : "You're invited";
+  return demo ? t('guest.tryPass') : t('guest.youreInvited');
 }
 
 const styles = StyleSheet.create({

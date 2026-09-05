@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { contactHref } from '@/lib/contact';
+import { t } from '@/lib/i18n';
 import { color, type } from '@/lib/theme';
 import type { GuestInvite } from '@/lib/types';
 
@@ -15,7 +16,7 @@ export function GuestBanner({ invite, expiresLabel }: GuestBannerProps) {
   const note = invite?.note?.trim() ?? '';
   const contact = invite?.contact?.trim() ?? '';
   const href = contactHref(contact);
-  const bits = [from.length > 0 ? `From ${from}` : null, expiresLabel].filter(
+  const bits = [from.length > 0 ? t('guest.from', { name: from }) : null, expiresLabel].filter(
     (bit): bit is string => bit !== null && bit.length > 0,
   );
 
@@ -26,7 +27,7 @@ export function GuestBanner({ invite, expiresLabel }: GuestBannerProps) {
         href !== null ? (
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={`Contact ${contact}`}
+            accessibilityLabel={t('guest.contact', { contact })}
             onPress={() => {
               void Linking.openURL(href);
             }}

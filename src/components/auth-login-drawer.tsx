@@ -6,6 +6,7 @@ import { WebView, type WebViewNavigation } from 'react-native-webview';
 
 import { FlapLoader } from '@/components/flap-loader';
 import { authorizationCodeFromUrl } from '@/lib/bmx-api';
+import { useI18n } from '@/lib/i18n/context';
 import { color, type } from '@/lib/theme';
 
 type AuthLoginDrawerProps = {
@@ -28,6 +29,7 @@ export function AuthLoginDrawer({
   onClose,
   onCapturedCode,
 }: AuthLoginDrawerProps) {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const captured = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export function AuthLoginDrawer({
             <Text style={styles.title}>ButterflyMX</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close login"
+              accessibilityLabel={t('auth.closeLogin')}
               onPress={busy ? undefined : onClose}
               disabled={busy}
               style={({ pressed }) => [styles.close, pressed ? styles.closePressed : null]}

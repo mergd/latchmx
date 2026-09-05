@@ -5,11 +5,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlapLoader } from '@/components/flap-loader';
 import { PageTitle } from '@/components/page-title';
 import { StatusScreen } from '@/components/status-screen';
+import { errorText } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
 export default function OAuthRedirect() {
+  const { t } = useI18n();
   const params = useLocalSearchParams<{ code?: string | string[] }>();
   const { completeSignIn, mode } = useSession();
   const [status, setStatus] = useState<'wait' | 'done' | 'error'>('wait');
@@ -35,7 +38,7 @@ export default function OAuthRedirect() {
       .catch((error) => {
         if (!cancelled) {
           setMessage(
-            error instanceof Error ? error.message : 'Sign-in failed.',
+            errorText(error, 'errors.signInFailedShort'),
           );
           setStatus('error');
         }
@@ -52,14 +55,14 @@ export default function OAuthRedirect() {
   if (status === 'error') {
     return (
       <View style={styles.screen}>
-        <StatusScreen title="Could not connect" body={message}>
+        <StatusScreen title={t('auth.couldNotConnect')} body={message}>
           <Pressable
             onPress={() => {
               setStatus('done');
             }}
             hitSlop={8}
           >
-            <Text style={styles.link}>Back to {APP_NAME}</Text>
+            <Text style={styles.link}>{t('auth.backToApp', { name: APP_NAME })}</Text>
           </Pressable>
         </StatusScreen>
       </View>
@@ -68,10 +71,10 @@ export default function OAuthRedirect() {
 
   return (
     <View style={styles.screen}>
-      <PageTitle title={latchTitle('Connecting')} />
+      <PageTitle title={latchTitle(t('auth.connecting'))} />
       <View style={styles.wait}>
         <FlapLoader size={64} />
-        <Text style={styles.waitTitle}>Connecting…</Text>
+        <Text style={styles.waitTitle}>{t('auth.connectingEllipsis')}</Text>
       </View>
     </View>
   );

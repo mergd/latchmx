@@ -12,6 +12,8 @@ import { KeysSkeleton } from '@/components/skeleton';
 import { InviteDialog } from '@/components/invite-dialog';
 import { approxRemaining, expiryCopy, expiryDialogBody } from '@/lib/expiry';
 import { demoKeyPath } from '@/lib/demo';
+import { displayInviteLabel, errorText, t } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { shareText } from '@/lib/share';
 import { latchTitle } from '@/lib/title';
@@ -19,6 +21,7 @@ import { color, type } from '@/lib/theme';
 import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
 export default function KeysScreen() {
+  const { t } = useI18n();
   const { mode, account, isDemo, buildingName, createKey, listKeys, revokeKey } = useSession();
   const [keys, setKeys] = useState<IssuedKey[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +50,7 @@ export default function KeysScreen() {
       .catch((caught: unknown) => {
         if (!cancelled) {
           setKeys([]);
-          setError(caught instanceof Error ? caught.message : 'Could not load keys.');
+          setError(errorText(caught, 'errors.loadKeys'));
         }
       });
     return () => {
@@ -83,7 +86,7 @@ export default function KeysScreen() {
       setCreated(next);
       setCopied(result === 'copied');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not create that key.');
+      setError(errorText(caught, 'errors.createKey'));
     } finally {
       setBusy(false);
     }
@@ -111,7 +114,7 @@ export default function KeysScreen() {
       setCopiedKeyId(key.id);
       setError(null);
     } catch {
-      setError('Could not copy that link.');
+      setError(t('errors.copyLink'));
     }
   };
 
@@ -125,7 +128,7 @@ export default function KeysScreen() {
       await revokeKey(id);
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not revoke that key.');
+      setError(errorText(caught, 'errors.revokeKey'));
     }
   };
 
@@ -139,7 +142,7 @@ export default function KeysScreen() {
 
   return (
     <AppShell>
-      <PageTitle title={latchTitle('Keys')} />
+      <PageTitle title={latchTitle(t('keys.title'))} />
       <ScrollView
         style={styles.scroller}
         contentContainerStyle={styles.content}
@@ -150,23 +153,23 @@ export default function KeysScreen() {
           <View style={styles.titleRow}>
             <IconButton
               icon={CaretLeftIcon}
-              label="Back"
+              label={t('common.back')}
               onPress={() => {
                 router.back();
               }}
             />
-            <Text style={styles.title}>Keys</Text>
+            <Text style={styles.title}>{t('keys.title')}</Text>
           </View>
         </View>
 
         {isDemo ? (
-          <Text style={styles.demoHint}>Demo invites work on this device only. Use Preview to try the guest experience.</Text>
+          <Text style={styles.demoHint}>{t('keys.demoHint')}</Text>
         ) : null}
         {signedIn ? (
           <View style={styles.create}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Invite"
+              accessibilityLabel={t('keys.invite')}
               onPress={() => {
                 setError(null);
                 setComposing(true);
@@ -176,21 +179,21 @@ export default function KeysScreen() {
                 pressed ? styles.invitePressed : null,
               ]}
             >
-              <Text style={styles.inviteLabel}>Invite</Text>
+              <Text style={styles.inviteLabel}>{t('keys.invite')}</Text>
             </Pressable>
           </View>
         ) : (
-          <Text style={styles.empty}>Sign in to make an invite.</Text>
+          <Text style={styles.empty}>{t('keys.signInToInvite')}</Text>
         )}
 
         {error !== null && !composing ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.list}>
-          <Text style={styles.section}>Live invites</Text>
+          <Text style={styles.section}>{t('keys.liveInvites')}</Text>
           {loading ? (
             <KeysSkeleton />
           ) : live.length === 0 ? (
-            <Text style={styles.empty}>No live invites.</Text>
+            <Text style={styles.empty}>{t('keys.noLive')}</Text>
           ) : (
             live.map((key) => (
               <InviteRow
@@ -218,8 +221,13 @@ export default function KeysScreen() {
               accessibilityRole="button"
               accessibilityLabel={
                 expiredOpen
-                  ? 'Hide expired invites'
-                  : `Show ${expired.length} expired ${expired.length === 1 ? 'invite' : 'invites'}`
+                  ? t('keys.hideExpired')
+                  : t(
+                      expired.length === 1
+                        ? 'keys.showExpiredOne'
+                        : 'keys.showExpiredOther',
+                      { count: expired.length },
+                    )
               }
               onPress={() => {
                 setExpiredOpen((open) => !open);
@@ -229,7 +237,7 @@ export default function KeysScreen() {
                 pressed ? styles.invitePressed : null,
               ]}
             >
-              <Text style={styles.section}>Expired</Text>
+              <Text style={styles.section}>{t('keys.expired')}</Text>
               <View style={styles.foldMeta}>
                 <Text style={styles.foldCount}>{expired.length}</Text>
                 <View style={expiredOpen ? styles.foldCaretOpen : null}>
@@ -274,18 +282,29 @@ export default function KeysScreen() {
       />
       <ConfirmDialog
         visible={created !== null}
-        title={isDemo ? 'Demo invite created' : 'Invite is live'}
+        title={isDemo ? t('keys.demoCreated') : t('keys.inviteLive')}
         body={
           created === null
             ? ''
             : isDemo
-              ? 'Preview the guest experience on this device. This invite cannot open real doors.'
+              ? t('keys.demoCreatedBody')
               : copied
-              ? `Link copied. ${expiryCopy(created.expiresAt, now === 0 ? created.expiresAt : now).until.replace(/^Until /, 'Dies at ')}.`
+              ? t('expiry.linkCopiedDies', {
+                  when: expiryCopy(
+                    created.expiresAt,
+                    now === 0 ? created.expiresAt : now,
+                  ).when,
+                })
               : expiryDialogBody(created.expiresAt, now === 0 ? created.expiresAt : now, created.url)
         }
         confirmLabel={
-          isDemo ? 'Preview invite' : copied ? 'Done' : Platform.OS === 'web' ? 'Copy link' : 'Share again'
+          isDemo
+            ? t('keys.previewInviteAction')
+            : copied
+              ? t('common.done')
+              : Platform.OS === 'web'
+                ? t('keys.copyLink')
+                : t('keys.shareAgain')
         }
         onCancel={() => {
           setCreated(null);
@@ -314,9 +333,9 @@ export default function KeysScreen() {
       />
       <ConfirmDialog
         visible={pendingRevoke !== null}
-        title="Revoke this invite?"
-        body={isDemo ? 'This demo invite will stop working on this device.' : 'The link dies immediately. Anyone holding it loses the doors.'}
-        confirmLabel="Revoke"
+        title={t('keys.revokeTitle')}
+        body={isDemo ? t('keys.revokeDemo') : t('keys.revokeBody')}
+        confirmLabel={t('keys.revoke')}
         onCancel={() => {
           setPendingRevoke(null);
         }}
@@ -351,22 +370,24 @@ function InviteRow({
     <View style={styles.row}>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, expired ? styles.rowTitleExpired : null]}>
-          {invite.label}
+          {displayInviteLabel(invite.label)}
         </Text>
         <Text style={styles.rowHint}>
           {remainingLabel(invite.expiresAt, clock)} ·{' '}
-          {invite.doorCount > 0 ? `${invite.doorCount} doors` : 'All doors'}
+          {invite.doorCount > 0
+            ? t('keys.doorCount', { count: invite.doorCount })
+            : t('keys.allDoors')}
         </Text>
       </View>
       <View style={styles.rowActions}>
         {!expired && isDemo && onPreview !== undefined ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Preview ${invite.label}`}
+            accessibilityLabel={t('keys.previewInvite', { label: invite.label })}
             onPress={onPreview}
             style={styles.rowAction}
           >
-            <Text style={styles.copyLabel}>Preview</Text>
+            <Text style={styles.copyLabel}>{t('keys.preview')}</Text>
           </Pressable>
         ) : null}
         {!expired && invite.url !== null && onCopy !== undefined ? (
@@ -377,7 +398,7 @@ function InviteRow({
               pressed ? styles.invitePressed : null,
             ]}
           >
-            <Text style={styles.copyLabel}>{copied ? 'Copied' : 'Copy'}</Text>
+            <Text style={styles.copyLabel}>{copied ? t('common.copied') : t('common.copy')}</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -387,7 +408,7 @@ function InviteRow({
             pressed ? styles.invitePressed : null,
           ]}
         >
-          <Text style={styles.revokeLabel}>Revoke</Text>
+          <Text style={styles.revokeLabel}>{t('keys.revoke')}</Text>
         </Pressable>
       </View>
     </View>
@@ -395,30 +416,32 @@ function InviteRow({
 }
 
 function inviteShareText(buildingName: string, expiresAt: number, now: number): string {
-  const place = buildingName.trim() || 'the building';
-  return `Here's my invite to ${place} - it expires in ${expiresInCopy(expiresAt, now)}`;
+  const place = buildingName.trim() || t('keys.theBuilding');
+  return t('keys.shareText', { place, when: expiresInCopy(expiresAt, now) });
 }
 
 function expiresInCopy(expiresAt: number, now: number): string {
   const left = expiresAt - now;
   if (left <= 0) {
-    return 'a moment';
+    return t('keys.aMoment');
   }
   if (left < 90 * 60_000) {
     const minutes = Math.max(1, Math.round(left / 60_000));
-    return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+    return minutes === 1
+      ? t('keys.minuteOne')
+      : t('keys.minuteOther', { count: minutes });
   }
   const hours = Math.max(1, Math.round(left / 3_600_000));
-  return hours === 1 ? '1 hour' : `${hours} hours`;
+  return hours === 1 ? t('keys.hourOne') : t('keys.hourOther', { count: hours });
 }
 
 function remainingLabel(expiresAt: number, now: number): string {
   if (now === 0) {
-    return 'Live';
+    return t('keys.live');
   }
   const left = expiresAt - now;
   if (left <= 0) {
-    return 'Expired';
+    return t('keys.expired');
   }
   return approxRemaining(left);
 }

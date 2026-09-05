@@ -16,6 +16,8 @@ import {
   extractAuthorizationCode,
   looksLikeAuthorizationCode,
 } from '@/lib/bmx-api';
+import { t } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n/context';
 import { color, type } from '@/lib/theme';
 
 type Step = 'instruct' | 'paste';
@@ -37,6 +39,7 @@ export function AuthCodeDialog({
   onCancel,
   onInstall,
 }: AuthCodeDialogProps) {
+  useI18n();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const [step, setStep] = useState<Step>('instruct');
@@ -162,11 +165,8 @@ function renderStep(
     case 'instruct':
       return (
         <>
-          <Text style={styles.title}>Copy the value</Text>
-          <Text style={styles.body}>
-            ButterflyMX will ask you to sign in, then show a value. Copy it,
-            come back here, and paste.
-          </Text>
+          <Text style={styles.title}>{t('auth.copyTheValue')}</Text>
+          <Text style={styles.body}>{t('auth.copyTheValueBody')}</Text>
           {props.error !== null ? <Text style={styles.error}>{props.error}</Text> : null}
           <View style={styles.actions}>
             <Pressable
@@ -174,7 +174,7 @@ function renderStep(
               onPress={props.onCancel}
               disabled={props.busy}
             >
-              <Text style={styles.btnLabel}>Cancel</Text>
+              <Text style={styles.btnLabel}>{t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -185,7 +185,7 @@ function renderStep(
               onPress={props.onGoToPortal}
               disabled={props.busy}
             >
-              <Text style={styles.btnPrimaryLabel}>Go to portal</Text>
+              <Text style={styles.btnPrimaryLabel}>{t('auth.goToPortal')}</Text>
             </Pressable>
           </View>
         </>
@@ -193,17 +193,15 @@ function renderStep(
     case 'paste':
       return (
         <>
-          <Text style={styles.title}>Paste the value</Text>
-          <Text style={styles.body}>
-            It should start with Authorization code:
-          </Text>
+          <Text style={styles.title}>{t('auth.pasteTheValue')}</Text>
+          <Text style={styles.body}>{t('auth.pasteTheValueBody')}</Text>
           <Text style={styles.example}>{AUTHORIZATION_CODE_EXAMPLE}</Text>
           <Pressable
             onPress={props.onGoToPortal}
             hitSlop={8}
             style={styles.loginLink}
           >
-            <Text style={styles.loginLinkLabel}>Open portal again</Text>
+            <Text style={styles.loginLinkLabel}>{t('auth.openPortalAgain')}</Text>
           </Pressable>
           {props.error !== null ? <Text style={styles.error}>{props.error}</Text> : null}
           <TextInput
@@ -227,7 +225,7 @@ function renderStep(
               onPress={props.onCancel}
               disabled={props.busy}
             >
-              <Text style={styles.btnLabel}>Cancel</Text>
+              <Text style={styles.btnLabel}>{t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -244,7 +242,7 @@ function renderStep(
               }
             >
               <Text style={styles.btnPrimaryLabel}>
-                {props.busy ? 'Installing' : 'Install'}
+                {props.busy ? t('auth.installing') : t('auth.install')}
               </Text>
             </Pressable>
           </View>

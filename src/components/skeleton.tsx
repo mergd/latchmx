@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { FlapLoader } from '@/components/flap-loader';
+import { t } from '@/lib/i18n';
 import { color } from '@/lib/theme';
 
 function Pulse({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -52,7 +53,7 @@ function Bone({
 
 export function HomeSkeleton() {
   return (
-    <View style={styles.home} accessibilityLabel="Loading your building">
+    <View style={styles.home} accessibilityLabel={t('doors.loadingBuilding')}>
       <View style={styles.hero}>
         <View style={styles.heroFill} />
         <FlapLoader size={72} />
@@ -76,7 +77,7 @@ export function HomeSkeleton() {
 
 export function KeysSkeleton() {
   return (
-    <View style={styles.keys} accessibilityLabel="Loading invites">
+    <View style={styles.keys} accessibilityLabel={t('keys.loadingInvites')}>
       <FlapLoader size={28} style={styles.keysMark} />
       <Pulse style={styles.keysList}>
         <KeyRow title="46%" hint="38%" />

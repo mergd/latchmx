@@ -1,4 +1,10 @@
 import { asRecord } from '@/lib/bmx-json';
+import {
+  activeLocale,
+  localeTag,
+  t,
+  type MessageKey,
+} from '@/lib/i18n';
 
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
@@ -10,15 +16,19 @@ export type DoorHoursWindow = {
   to: string;
 };
 
-const DAY_LABEL: Record<DoorWeekday, string> = {
-  mon: 'Mon',
-  tue: 'Tue',
-  wed: 'Wed',
-  thu: 'Thu',
-  fri: 'Fri',
-  sat: 'Sat',
-  sun: 'Sun',
+const DAY_KEY: Record<DoorWeekday, MessageKey> = {
+  mon: 'hours.mon',
+  tue: 'hours.tue',
+  wed: 'hours.wed',
+  thu: 'hours.thu',
+  fri: 'hours.fri',
+  sat: 'hours.sat',
+  sun: 'hours.sun',
 };
+
+function dayLabel(day: DoorWeekday): string {
+  return t(DAY_KEY[day]);
+}
 
 const WEEKDAY_SET = new Set<string>(WEEKDAYS);
 const WEEKDAY_ALIASES: Record<string, DoorWeekday> = {
@@ -88,15 +98,24 @@ export function hoursStatus(
     return label === null ? null : { unlocked: false, hint: label };
   }
   if (next.weekday === now.weekday) {
-    return { unlocked: false, hint: `Opens ${formatClock(next.from)}` };
+    return {
+      unlocked: false,
+      hint: t('hours.opens', { time: formatClock(next.from) }),
+    };
   }
   const tomorrow = WEEKDAYS[(WEEKDAYS.indexOf(now.weekday) + 1) % 7];
   if (next.weekday === tomorrow) {
-    return { unlocked: false, hint: `Opens ${formatClock(next.from)}` };
+    return {
+      unlocked: false,
+      hint: t('hours.opens', { time: formatClock(next.from) }),
+    };
   }
   return {
     unlocked: false,
-    hint: `Opens ${DAY_LABEL[next.weekday]} ${formatClock(next.from)}`,
+    hint: t('hours.opensDay', {
+      day: dayLabel(next.weekday),
+      time: formatClock(next.from),
+    }),
   };
 }
 
@@ -199,13 +218,13 @@ function formatWindow(window: DoorHoursWindow): string {
 
 function formatDays(days: DoorWeekday[]): string {
   if (days.length === 7) {
-    return 'Daily';
+    return t('hours.daily');
   }
   if (sameDays(days, ['mon', 'tue', 'wed', 'thu', 'fri'])) {
-    return 'Weekdays';
+    return t('hours.weekdays');
   }
   if (sameDays(days, ['sat', 'sun'])) {
-    return 'Weekends';
+    return t('hours.weekends');
   }
   const indexes = days
     .map((day) => WEEKDAYS.indexOf(day))
@@ -214,7 +233,7 @@ function formatDays(days: DoorWeekday[]): string {
     return '';
   }
   if (indexes.length === 1) {
-    return DAY_LABEL[WEEKDAYS[indexes[0]] ?? 'mon'];
+    return dayLabel(WEEKDAYS[indexes[0]] ?? 'mon');
   }
   const contiguous = indexes.every(
     (index, offset) => offset === 0 || index === (indexes[offset - 1] ?? 0) + 1,
@@ -223,13 +242,13 @@ function formatDays(days: DoorWeekday[]): string {
     const first = WEEKDAYS[indexes[0]];
     const last = WEEKDAYS[indexes[indexes.length - 1]];
     if (first !== undefined && last !== undefined) {
-      return `${DAY_LABEL[first]}–${DAY_LABEL[last]}`;
+      return `${dayLabel(first)}–${dayLabel(last)}`;
     }
   }
   return indexes
     .map((index) => {
       const day = WEEKDAYS[index];
-      return day === undefined ? '' : DAY_LABEL[day];
+      return day === undefined ? '' : dayLabel(day);
     })
     .filter((label) => label.length > 0)
     .join(', ');
@@ -240,11 +259,13 @@ function formatClock(value: string): string {
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw);
   if (hour === 0 && minute === 0) {
-    return 'midnight';
+    return t('hours.midnight');
   }
-  const suffix = hour >= 12 ? 'pm' : 'am';
-  const twelve = hour % 12 === 0 ? 12 : hour % 12;
-  return minute === 0 ? `${twelve}${suffix}` : `${twelve}:${minute.toString().padStart(2, '0')}${suffix}`;
+  const stamp = new Date(2000, 0, 1, hour, minute);
+  return new Intl.DateTimeFormat(localeTag(activeLocale()), {
+    hour: 'numeric',
+    ...(minute === 0 ? {} : { minute: '2-digit' as const }),
+  }).format(stamp);
 }
 
 function sameDays(left: DoorWeekday[], right: DoorWeekday[]): boolean {

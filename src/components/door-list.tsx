@@ -6,7 +6,8 @@ import Sortable, { type SortableGridRenderItem } from 'react-native-sortables';
 
 import { DoorAccordion } from '@/components/door-accordion';
 import { DoorRow } from '@/components/door-button';
-import { HIDDEN_GROUP_ID, HIDDEN_GROUP_LABEL } from '@/config/buildings';
+import { HIDDEN_GROUP_ID } from '@/config/buildings';
+import { useI18n } from '@/lib/i18n/context';
 import { doorInk, groupInk } from '@/lib/theme';
 import type { Door } from '@/lib/types';
 import type { DoorGroup } from '@/lib/zones';
@@ -37,6 +38,7 @@ export function DoorList({
   onGroupLayout,
   reorderGroups,
 }: DoorListProps) {
+  const { t } = useI18n();
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   const knownIds = groups.map((group) => group.id);
@@ -105,7 +107,7 @@ export function DoorList({
         }}
       >
         <DoorAccordion
-          title={HIDDEN_GROUP_LABEL}
+          title={t('home.hidden')}
           count={hidden.length}
           open={openId === HIDDEN_GROUP_ID}
           ink={groupInk(groups.length)}

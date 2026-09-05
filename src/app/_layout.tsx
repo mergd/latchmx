@@ -6,32 +6,40 @@ import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusScreen } from '@/components/status-screen';
 import { DemoNotice } from '@/components/demo-notice';
 import { AnalyticsProvider } from '@/lib/analytics-provider';
+import { t } from '@/lib/i18n';
+import { LocaleProvider } from '@/lib/i18n/provider';
 import { slideInOut } from '@/lib/screen-slide';
 import { SessionProvider } from '@/lib/session';
 import { APP_NAME } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(console.warn);
+
+function hideSplash() {
+  void SplashScreen.hideAsync().catch(console.warn);
+}
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const title = t('app.snag', { name: APP_NAME });
   useEffect(() => {
+    hideSplash();
     if (Platform.OS === 'web') {
-      document.title = `${APP_NAME} hit a snag`;
+      document.title = title;
     }
-  }, []);
+  }, [title]);
 
   return (
     <View style={styles.errorScreen}>
-      <StatusScreen title={`${APP_NAME} hit a snag`} body={error.message} tabTitle={false}>
+      <StatusScreen title={title} body={error.message} tabTitle={false}>
         <Pressable onPress={retry} style={styles.retry}>
-          <Text style={styles.retryLabel}>Try again</Text>
+          <Text style={styles.retryLabel}>{t('common.tryAgain')}</Text>
         </Pressable>
       </StatusScreen>
     </View>
@@ -43,24 +51,33 @@ export default function RootLayout() {
     Fraunces_600SemiBold,
     Outfit_400Regular,
   });
+  const [fontWaitExpired, setFontWaitExpired] = useState(false);
 
-  if (!fontsLoaded && fontError == null) {
+  useEffect(() => {
+    if (fontsLoaded || fontError != null) return;
+    const timer = setTimeout(() => setFontWaitExpired(true), 4000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && fontError == null && !fontWaitExpired) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <SessionProvider>
-        <AnalyticsProvider>
-          <StatusBar style="light" />
-          <View style={styles.page}>
-            <View style={styles.frame}>
-              <AppStack />
-              <DemoNotice />
+    <GestureHandlerRootView style={styles.root} onLayout={hideSplash}>
+      <LocaleProvider>
+        <SessionProvider>
+          <AnalyticsProvider>
+            <StatusBar style="light" />
+            <View style={styles.page}>
+              <View style={styles.frame}>
+                <AppStack />
+                <DemoNotice />
+              </View>
             </View>
-          </View>
-        </AnalyticsProvider>
-      </SessionProvider>
+          </AnalyticsProvider>
+        </SessionProvider>
+      </LocaleProvider>
     </GestureHandlerRootView>
   );
 }

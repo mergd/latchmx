@@ -7,38 +7,65 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppShell } from '@/components/app-shell';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { IconButton } from '@/components/icon-button';
+import { LanguageDialog } from '@/components/language-dialog';
 import { PageTitle } from '@/components/page-title';
 import { SignInForm } from '@/components/sign-in-form';
 import { build, buildStamp } from '@/lib/build';
 import { openFeedback } from '@/lib/feedback';
 import { hapticSuccess } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
 import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
 
+const LANGUAGE_NAMES = {
+  en: 'English',
+  zh: '中文',
+  es: 'Español',
+  pt: 'Português',
+  hi: 'हिन्दी',
+  ne: 'नेपाली',
+} as const;
+
 export default function SettingsScreen() {
+  const { t, locale, preference } = useI18n();
   const { account, buildingName, mode, isDemo, signOut } = useSession();
   const [pendingSignOut, setPendingSignOut] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = account?.name?.trim() ?? '';
   const email = account?.email?.trim() ?? '';
   const identity =
     account !== null
       ? {
-          name: name.length > 0 ? name : account.kind === 'guest' ? 'Guest' : 'Signed in',
+          name:
+            name.length > 0
+              ? name
+              : account.kind === 'guest'
+                ? t('settings.guest')
+                : t('settings.signedIn'),
           email,
           hint:
             account.kind === 'guest'
-              ? 'Guest pass'
+              ? t('settings.guestPass')
               : (account.buildingName ?? buildingName),
         }
       : mode === 'signed_in'
         ? {
-            name: name.length > 0 ? name : buildingName.length > 0 ? buildingName : 'Signed in',
+            name:
+              name.length > 0
+                ? name
+                : buildingName.length > 0
+                  ? buildingName
+                  : t('settings.signedIn'),
             email,
             hint: buildingName,
           }
         : null;
+  const languageValue =
+    preference === 'system'
+      ? t('language.systemValue', { language: LANGUAGE_NAMES[locale] })
+      : LANGUAGE_NAMES[locale];
 
   useEffect(() => {
     if (!copied) {
@@ -61,18 +88,18 @@ export default function SettingsScreen() {
 
   return (
     <AppShell>
-      <PageTitle title={latchTitle('Account')} />
+      <PageTitle title={latchTitle(t('settings.account'))} />
       <View style={styles.screen}>
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <IconButton
               icon={CaretLeftIcon}
-              label="Back"
+              label={t('common.back')}
               onPress={() => {
                 router.back();
               }}
             />
-            <Text style={styles.title}>Account</Text>
+            <Text style={styles.title}>{t('settings.account')}</Text>
           </View>
           {identity !== null ? (
             <View style={styles.identity}>
@@ -88,7 +115,7 @@ export default function SettingsScreen() {
 
         {mode === 'signed_in' ? (
           <SettingsRow
-            label="Keys"
+            label={t('settings.keys')}
             onPress={() => {
               router.push('/keys');
             }}
@@ -99,14 +126,21 @@ export default function SettingsScreen() {
           </View>
         ) : null}
         <SettingsRow
-          label="Send feedback"
+          label={t('language.label')}
+          value={languageValue}
+          onPress={() => {
+            setLanguageOpen(true);
+          }}
+        />
+        <SettingsRow
+          label={t('settings.sendFeedback')}
           onPress={() => {
             void openFeedback();
           }}
         />
         {mode === 'signed_in' ? (
           <SettingsRow
-            label={isDemo ? 'Exit demo' : 'Sign out'}
+            label={isDemo ? t('auth.exitDemo') : t('auth.signOut')}
             onPress={() => {
               setPendingSignOut(true);
             }}
@@ -115,7 +149,7 @@ export default function SettingsScreen() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Copy build ${buildStamp()}`}
+          accessibilityLabel={t('settings.copyBuild', { stamp: buildStamp() })}
           onPress={() => {
             void onCopyBuild();
           }}
@@ -125,14 +159,20 @@ export default function SettingsScreen() {
             {APP_NAME} {build.version}
             {build.native !== null && build.native.length > 0 ? ` (${build.native})` : ''}
           </Text>
-          <Text style={styles.buildHash}>{copied ? 'Copied' : buildStamp()}</Text>
+          <Text style={styles.buildHash}>{copied ? t('common.copied') : buildStamp()}</Text>
         </Pressable>
       </View>
+      <LanguageDialog
+        visible={languageOpen}
+        onClose={() => {
+          setLanguageOpen(false);
+        }}
+      />
       <ConfirmDialog
         visible={pendingSignOut}
-        title={isDemo ? 'Exit demo?' : 'Sign out?'}
-        body={isDemo ? 'Your real account and door layout stay unchanged.' : 'You’ll need a ButterflyMX authorization code to get back in.'}
-        confirmLabel={isDemo ? 'Exit demo' : 'Sign out'}
+        title={isDemo ? t('auth.exitDemoTitle') : t('auth.signOutTitle')}
+        body={isDemo ? t('auth.exitDemoBody') : t('auth.signOutBody')}
+        confirmLabel={isDemo ? t('auth.exitDemo') : t('auth.signOut')}
         onCancel={() => {
           setPendingSignOut(false);
         }}
@@ -145,15 +185,24 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingsRow({ label, onPress }: { label: string; onPress: () => void }) {
+function SettingsRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value?: string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={value === undefined ? label : `${label}, ${value}`}
       style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
       onPress={onPress}
     >
       <Text style={styles.rowLabel}>{label}</Text>
+      {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
     </Pressable>
   );
 }
@@ -203,7 +252,10 @@ const styles = StyleSheet.create({
   row: {
     marginHorizontal: 12,
     minHeight: 52,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -217,6 +269,13 @@ const styles = StyleSheet.create({
     color: color.text,
     fontFamily: type.body,
     fontSize: 16,
+  },
+  rowValue: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 14,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   build: {
     marginTop: 'auto',

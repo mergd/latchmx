@@ -1,5 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useI18n } from '@/lib/i18n/context';
 import { color, type } from '@/lib/theme';
 
 type HoursDialogProps = {
@@ -17,6 +18,7 @@ export function HoursDialog({
   lines,
   onClose,
 }: HoursDialogProps) {
+  const { t } = useI18n();
   return (
     <Modal
       visible={visible}
@@ -37,11 +39,11 @@ export function HoursDialog({
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Done"
+            accessibilityLabel={t('common.done')}
             onPress={onClose}
             style={({ pressed }) => [styles.done, pressed ? styles.pressed : null]}
           >
-            <Text style={styles.doneLabel}>Done</Text>
+            <Text style={styles.doneLabel}>{t('common.done')}</Text>
           </Pressable>
         </Pressable>
       </Pressable>

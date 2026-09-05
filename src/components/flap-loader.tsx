@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
 import { type ImageStyle, type StyleProp } from 'react-native';
 
+import { t } from '@/lib/i18n';
+
 import flap from '../../assets/images/flap.png';
 
 type FlapLoaderProps = {
@@ -14,7 +16,7 @@ export function FlapLoader({ size = 56, style }: FlapLoaderProps) {
       source={flap}
       style={[{ width: size, height: size }, style]}
       contentFit="contain"
-      accessibilityLabel="Loading"
+      accessibilityLabel={t('common.loading')}
     />
   );
 }
