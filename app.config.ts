@@ -53,6 +53,8 @@ const config: ExpoConfig = {
     supportsTablet: false,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSBluetoothAlwaysUsageDescription:
+        'LatchMX uses Bluetooth briefly to suggest the door you are standing near.',
     },
   },
   android: {

@@ -20,6 +20,7 @@ import { DeadKey } from '@/components/dead-key';
 import { DoorList } from '@/components/door-list';
 import { GuestBanner } from '@/components/guest-banner';
 import { GuestWelcome } from '@/components/guest-welcome';
+import { NearbyDoorSuggestion } from '@/components/nearby-door-suggestion';
 import { IconButton } from '@/components/icon-button';
 import { PageTitle } from '@/components/page-title';
 import { HomeSkeleton } from '@/components/skeleton';
@@ -30,6 +31,7 @@ import { approxRemaining } from '@/lib/expiry';
 import { displayBuildingName, localizeError, t } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/context';
 import { useSession } from '@/lib/session';
+import { useNearbyDoors } from '@/lib/use-nearby-doors';
 import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, groupInk, type } from '@/lib/theme';
 import {
@@ -124,6 +126,11 @@ function SignedInHome() {
   const guestSecret = /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
   const [now, setNow] = useState(0);
   const [arranging, setArranging] = useState(false);
+  const nearbyCandidates = useMemo(
+    () => doors.filter((door) => !door.disabled && !hiddenByDoorId[door.id]),
+    [doors, hiddenByDoorId],
+  );
+  const nearby = useNearbyDoors(nearbyCandidates, !guest && !arranging);
   const [pendingReset, setPendingReset] = useState(false);
   const [section, setSection] = useState('');
   const [chromePinned, setChromePinned] = useState(false);
@@ -291,6 +298,13 @@ function SignedInHome() {
                   expiresLabel={guestKicker(guestExpiresAt, now)}
                 />
               ) : null}
+              <NearbyDoorSuggestion
+                {...nearby}
+                openUntilByDoorId={openUntilByDoorId}
+                onEnable={nearby.enable}
+                onRefresh={nearby.refresh}
+                onUnlock={unlock}
+              />
               <View
                 style={styles.listMeasure}
                 onLayout={(event) => {
