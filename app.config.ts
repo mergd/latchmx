@@ -47,7 +47,7 @@ const config: ExpoConfig = {
     },
   },
   ios: {
-    buildNumber: '15',
+    buildNumber: '16',
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
