@@ -30,11 +30,13 @@ export const es: Messages = {
     tryDemo: 'Probar demo',
     signOut: 'Cerrar sesión',
     signOutTitle: '¿Cerrar sesión?',
-    signOutBody: 'Necesitarás un código de autorización de ButterflyMX para volver.',
+    signOutBody:
+      'Necesitarás un código de autorización de ButterflyMX para volver.',
     exitDemo: 'Salir de la demo',
     exitDemoTitle: '¿Salir de la demo?',
     exitDemoBody: 'Tu cuenta real y el orden de las puertas no cambian.',
-    notConfigured: 'Esta versión no está configurada para iniciar sesión en ButterflyMX.',
+    notConfigured:
+      'Esta versión no está configurada para iniciar sesión en ButterflyMX.',
     copyTheValue: 'Copia el valor',
     copyTheValueBody:
       'ButterflyMX te pedirá iniciar sesión y luego mostrará un valor. Cópialo, vuelve aquí y pégalo.',
@@ -54,7 +56,8 @@ export const es: Messages = {
     signInTitle: 'Iniciar sesión',
     dragSections: 'Arrastra las secciones para reordenar',
     noDoors: 'Aún no hay puertas',
-    noDoorsBody: '%{name} no encontró una puerta que se pueda abrir en esta cuenta.',
+    noDoorsBody:
+      '%{name} no encontró una puerta que se pueda abrir en esta cuenta.',
     resetLayoutTitle: '¿Restablecer este diseño?',
     resetLayoutBody:
       'Las puertas vuelven al orden predeterminado del edificio y reaparecen las que ocultaste.',
@@ -71,11 +74,26 @@ export const es: Messages = {
     building: 'Edificio',
     nearby: 'Cerca',
     findNearby: 'Buscar mi puerta cercana',
-    findNearbyBody: 'Usa Bluetooth brevemente para sugerir la entrada a tu lado.',
+    findNearbyBody:
+      'Usa Bluetooth brevemente para sugerir la entrada a tu lado.',
     findingNearby: 'Buscando…',
     scanAgain: 'Buscar de nuevo',
     noNearby: 'No hay ninguna puerta compatible cerca.',
     nearbyUnavailable: 'Las puertas cercanas no están disponibles ahora.',
+  },
+  diagnostics: {
+    title: 'Diagnóstico de Bluetooth',
+    scan: 'Ejecutar diagnóstico',
+    scanning: 'Buscando lectores cercanos…',
+    copy: 'Copiar informe anonimizado',
+    disable: 'Desactivar diagnósticos',
+    disabled: 'Diagnósticos desactivados',
+    noReaders: 'No se encontraron lectores Bluetooth con nombre.',
+    eligible: '%{count} puertas tienen identificadores de lector',
+    matched: 'Coincide con %{door}',
+    unmatched: 'Sin coincidencia de puerta',
+    privacy:
+      'Los informes incluyen nombres de lector ocultos, intensidad de señal y resultados. Nunca incluyen credenciales ni identificadores completos.',
   },
   doors: {
     open: 'Abierta',
@@ -120,8 +138,10 @@ export const es: Messages = {
     previewInvite: 'Vista previa de %{label}',
     revoke: 'Revocar',
     revokeTitle: '¿Revocar esta invitación?',
-    revokeDemo: 'Esta invitación de demo dejará de funcionar en este dispositivo.',
-    revokeBody: 'El enlace muere al instante. Quien lo tenga pierde las puertas.',
+    revokeDemo:
+      'Esta invitación de demo dejará de funcionar en este dispositivo.',
+    revokeBody:
+      'El enlace muere al instante. Quien lo tenga pierde las puertas.',
     demoCreated: 'Invitación de demo creada',
     inviteLive: 'La invitación está activa',
     demoCreatedBody:
@@ -228,7 +248,8 @@ export const es: Messages = {
     localApi: 'No se pudo resolver el origen de la API local.',
     demoInviteDevice:
       'Esta invitación de demo solo está disponible en el dispositivo donde se creó.',
-    showDoorBeforeInvite: 'Muestra al menos una puerta antes de crear una invitación.',
+    showDoorBeforeInvite:
+      'Muestra al menos una puerta antes de crear una invitación.',
     notDemoDoor: 'Esta no es una puerta de demo.',
     doorNotInInvite: 'Esta puerta no está incluida en la invitación.',
   },

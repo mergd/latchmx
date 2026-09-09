@@ -30,11 +30,13 @@ export const pt: Messages = {
     tryDemo: 'Testar demo',
     signOut: 'Sair',
     signOutTitle: 'Sair?',
-    signOutBody: 'Você vai precisar de um código de autorização do ButterflyMX para voltar.',
+    signOutBody:
+      'Você vai precisar de um código de autorização do ButterflyMX para voltar.',
     exitDemo: 'Sair da demo',
     exitDemoTitle: 'Sair da demo?',
     exitDemoBody: 'Sua conta real e a ordem das portas continuam iguais.',
-    notConfigured: 'Esta versão não está configurada para entrar no ButterflyMX.',
+    notConfigured:
+      'Esta versão não está configurada para entrar no ButterflyMX.',
     copyTheValue: 'Copie o valor',
     copyTheValueBody:
       'O ButterflyMX vai pedir para você entrar e depois mostrar um valor. Copie, volte aqui e cole.',
@@ -54,7 +56,8 @@ export const pt: Messages = {
     signInTitle: 'Entrar',
     dragSections: 'Arraste as seções para reordenar',
     noDoors: 'Ainda não há portas',
-    noDoorsBody: '%{name} não encontrou uma porta que possa ser aberta nesta conta.',
+    noDoorsBody:
+      '%{name} não encontrou uma porta que possa ser aberta nesta conta.',
     resetLayoutTitle: 'Redefinir este layout?',
     resetLayoutBody:
       'As portas voltam à ordem padrão do prédio, e o que você ocultou reaparece.',
@@ -71,11 +74,26 @@ export const pt: Messages = {
     building: 'Prédio',
     nearby: 'Por perto',
     findNearby: 'Encontrar minha porta próxima',
-    findNearbyBody: 'Usa Bluetooth brevemente para sugerir a entrada ao seu lado.',
+    findNearbyBody:
+      'Usa Bluetooth brevemente para sugerir a entrada ao seu lado.',
     findingNearby: 'Procurando…',
     scanAgain: 'Procurar novamente',
     noNearby: 'Nenhuma porta correspondente está próxima.',
     nearbyUnavailable: 'Portas próximas não estão disponíveis agora.',
+  },
+  diagnostics: {
+    title: 'Diagnóstico de Bluetooth',
+    scan: 'Executar diagnóstico',
+    scanning: 'Procurando leitores próximos…',
+    copy: 'Copiar relatório anonimizado',
+    disable: 'Desativar diagnósticos',
+    disabled: 'Diagnósticos desativados',
+    noReaders: 'Nenhum leitor Bluetooth com nome encontrado.',
+    eligible: '%{count} portas têm identificadores de leitor',
+    matched: 'Corresponde a %{door}',
+    unmatched: 'Sem correspondência de porta',
+    privacy:
+      'Os relatórios incluem nomes de leitores ocultos, intensidade do sinal e resultados. Credenciais e identificadores completos nunca são incluídos.',
   },
   doors: {
     open: 'Aberta',
@@ -228,7 +246,8 @@ export const pt: Messages = {
     localApi: 'Não foi possível resolver a origem da API local.',
     demoInviteDevice:
       'Este convite de demo só está disponível no aparelho em que foi criado.',
-    showDoorBeforeInvite: 'Mostre pelo menos uma porta antes de criar um convite.',
+    showDoorBeforeInvite:
+      'Mostre pelo menos uma porta antes de criar um convite.',
     notDemoDoor: 'Esta não é uma porta de demo.',
     doorNotInInvite: 'Esta porta não está no convite.',
   },

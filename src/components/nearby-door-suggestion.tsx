@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DoorRow } from '@/components/door-button';
+import { capture } from '@/lib/analytics';
 import { useI18n } from '@/lib/i18n/context';
 import type { NearbyDoorMatch } from '@/lib/nearby-ranking';
 import { color, type } from '@/lib/theme';
@@ -72,7 +73,7 @@ export function NearbyDoorSuggestion({
       </View>
       {matches.length > 0 ? (
         <View style={styles.results}>
-          {matches.map(({ door }, index) => (
+          {matches.map(({ door, rssi, samples }, index) => (
             <DoorRow
               key={door.id}
               door={door}
@@ -80,7 +81,15 @@ export function NearbyDoorSuggestion({
               sortable={false}
               last={index === matches.length - 1}
               openUntil={openUntilByDoorId[door.id] ?? null}
-              onUnlock={onUnlock}
+              onUnlock={async (selected) => {
+                capture('nearby_suggestion_selected', {
+                  rank: index + 1,
+                  rssi,
+                  samples,
+                  candidate_count: matches.length,
+                });
+                await onUnlock(selected);
+              }}
             />
           ))}
         </View>

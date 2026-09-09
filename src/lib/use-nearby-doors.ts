@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import NearbyDoors from '../../modules/nearby-doors';
+import { capture } from './analytics';
+import {
+  nearbyErrorCode,
+  nearbyScanProperties,
+} from './nearby-diagnostic-data';
 import { rankNearbyDoors, type NearbyDoorMatch } from './nearby-ranking';
 import { storageGet, storageSet } from './storage';
 import type { Door } from './types';
@@ -34,42 +39,62 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
     };
   }, []);
 
-  const scan = useCallback(async () => {
-    if (Platform.OS !== 'ios' || !active || eligible.length === 0) {
-      return;
-    }
-    const sequence = ++scanSequence.current;
-    setScanning(true);
-    setError(null);
-    try {
-      const peripherals = await NearbyDoors.scanAsync(SCAN_MS);
-      if (sequence === scanSequence.current) {
-        setMatches(rankNearbyDoors(eligible, peripherals));
+  const scan = useCallback(
+    async (source: 'automatic' | 'manual') => {
+      if (Platform.OS !== 'ios' || !active || eligible.length === 0) {
+        return;
       }
-    } catch (caught) {
-      if (sequence === scanSequence.current) {
-        setMatches([]);
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : 'Bluetooth is unavailable.',
-        );
+      const sequence = ++scanSequence.current;
+      const startedAt = Date.now();
+      setScanning(true);
+      setError(null);
+      try {
+        const peripherals = await NearbyDoors.scanAsync(SCAN_MS);
+        if (sequence === scanSequence.current) {
+          const nextMatches = rankNearbyDoors(eligible, peripherals);
+          setMatches(nextMatches);
+          capture('nearby_scan_completed', {
+            source,
+            ...nearbyScanProperties(
+              peripherals,
+              nextMatches,
+              eligible.length,
+              Date.now() - startedAt,
+            ),
+          });
+        }
+      } catch (caught) {
+        if (sequence === scanSequence.current) {
+          setMatches([]);
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : 'Bluetooth is unavailable.',
+          );
+          capture('nearby_scan_failed', {
+            source,
+            error_code: nearbyErrorCode(caught),
+            eligible_door_count: eligible.length,
+            elapsed_ms: Date.now() - startedAt,
+          });
+        }
+      } finally {
+        if (sequence === scanSequence.current) {
+          setScanning(false);
+        }
       }
-    } finally {
-      if (sequence === scanSequence.current) {
-        setScanning(false);
-      }
-    }
-  }, [active, eligible]);
+    },
+    [active, eligible],
+  );
 
   useEffect(() => {
     if (!loaded || !enabled) {
       return;
     }
-    void scan();
+    void scan('automatic');
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void scan();
+        void scan('automatic');
       }
     });
     return () => {
@@ -82,7 +107,10 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   const enable = useCallback(async () => {
     await storageSet(ENABLED_KEY, 'true');
     setEnabled(true);
-  }, []);
+    capture('nearby_suggestions_enabled', {
+      eligible_door_count: eligible.length,
+    });
+  }, [eligible.length]);
 
   return {
     available: Platform.OS === 'ios' && active && eligible.length > 0,
@@ -91,6 +119,6 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
     matches,
     error,
     enable,
-    refresh: scan,
+    refresh: () => scan('manual'),
   };
 }

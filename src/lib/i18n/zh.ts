@@ -76,6 +76,20 @@ export const zh: Messages = {
     noNearby: '附近没有匹配的门。',
     nearbyUnavailable: '附近门功能目前不可用。',
   },
+  diagnostics: {
+    title: '蓝牙诊断',
+    scan: '运行诊断扫描',
+    scanning: '正在扫描附近的读取器…',
+    copy: '复制已脱敏报告',
+    disable: '关闭诊断',
+    disabled: '诊断已关闭',
+    noReaders: '未找到有名称的蓝牙读取器。',
+    eligible: '%{count} 个门有读取器标识符',
+    matched: '已匹配 %{door}',
+    unmatched: '未匹配门',
+    privacy:
+      '报告仅包含已隐去的读取器名称、信号强度和匹配结果，不包含凭据或完整标识符。',
+  },
   doors: {
     open: '已开',
     opening: '正在开门…',

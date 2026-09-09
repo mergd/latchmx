@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { CaretLeftIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
@@ -11,9 +11,14 @@ import { LanguageDialog } from '@/components/language-dialog';
 import { PageTitle } from '@/components/page-title';
 import { SignInForm } from '@/components/sign-in-form';
 import { build, buildStamp } from '@/lib/build';
+import { capture } from '@/lib/analytics';
 import { openFeedback } from '@/lib/feedback';
 import { hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n/context';
+import {
+  diagnosticsEnabled,
+  setDiagnosticsEnabled,
+} from '@/lib/nearby-diagnostics';
 import { useSession } from '@/lib/session';
 import { APP_NAME, latchTitle } from '@/lib/title';
 import { color, type } from '@/lib/theme';
@@ -33,6 +38,9 @@ export default function SettingsScreen() {
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  const buildTapCount = useRef(0);
+  const buildTapReset = useRef<ReturnType<typeof setTimeout> | null>(null);
   const name = account?.name?.trim() ?? '';
   const email = account?.email?.trim() ?? '';
   const identity =
@@ -68,6 +76,15 @@ export default function SettingsScreen() {
       : LANGUAGE_NAMES[locale];
 
   useEffect(() => {
+    void diagnosticsEnabled().then(setDiagnosticsVisible);
+    return () => {
+      if (buildTapReset.current !== null) {
+        clearTimeout(buildTapReset.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!copied) {
       return;
     }
@@ -84,6 +101,25 @@ export default function SettingsScreen() {
     await Clipboard.setStringAsync(value);
     setCopied(true);
     void hapticSuccess();
+  };
+
+  const onBuildPress = () => {
+    void onCopyBuild();
+    buildTapCount.current += 1;
+    if (buildTapReset.current !== null) {
+      clearTimeout(buildTapReset.current);
+    }
+    if (buildTapCount.current >= 7) {
+      buildTapCount.current = 0;
+      void setDiagnosticsEnabled(true).then(() => {
+        setDiagnosticsVisible(true);
+        capture('bluetooth_diagnostics_enabled');
+      });
+      return;
+    }
+    buildTapReset.current = setTimeout(() => {
+      buildTapCount.current = 0;
+    }, 3000);
   };
 
   return (
@@ -132,6 +168,14 @@ export default function SettingsScreen() {
             setLanguageOpen(true);
           }}
         />
+        {diagnosticsVisible && mode === 'signed_in' && !isDemo ? (
+          <SettingsRow
+            label={t('diagnostics.title')}
+            onPress={() => {
+              router.push('/diagnostics');
+            }}
+          />
+        ) : null}
         <SettingsRow
           label={t('settings.sendFeedback')}
           onPress={() => {
@@ -150,16 +194,21 @@ export default function SettingsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.copyBuild', { stamp: buildStamp() })}
-          onPress={() => {
-            void onCopyBuild();
-          }}
-          style={({ pressed }) => [styles.build, pressed ? styles.buildPressed : null]}
+          onPress={onBuildPress}
+          style={({ pressed }) => [
+            styles.build,
+            pressed ? styles.buildPressed : null,
+          ]}
         >
           <Text style={styles.buildName}>
             {APP_NAME} {build.version}
-            {build.native !== null && build.native.length > 0 ? ` (${build.native})` : ''}
+            {build.native !== null && build.native.length > 0
+              ? ` (${build.native})`
+              : ''}
           </Text>
-          <Text style={styles.buildHash}>{copied ? t('common.copied') : buildStamp()}</Text>
+          <Text style={styles.buildHash}>
+            {copied ? t('common.copied') : buildStamp()}
+          </Text>
         </Pressable>
       </View>
       <LanguageDialog
@@ -202,7 +251,9 @@ function SettingsRow({
       onPress={onPress}
     >
       <Text style={styles.rowLabel}>{label}</Text>
-      {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
+      {value !== undefined ? (
+        <Text style={styles.rowValue}>{value}</Text>
+      ) : null}
     </Pressable>
   );
 }

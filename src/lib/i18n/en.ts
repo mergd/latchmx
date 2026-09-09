@@ -75,6 +75,20 @@ export const en = {
     noNearby: 'No matching door is nearby.',
     nearbyUnavailable: 'Nearby doors are unavailable right now.',
   },
+  diagnostics: {
+    title: 'Bluetooth diagnostics',
+    scan: 'Run diagnostic scan',
+    scanning: 'Scanning nearby readers…',
+    copy: 'Copy sanitized report',
+    disable: 'Disable diagnostics',
+    disabled: 'Diagnostics disabled',
+    noReaders: 'No named Bluetooth readers found.',
+    eligible: '%{count} doors have reader identifiers',
+    matched: 'Matched to %{door}',
+    unmatched: 'No door match',
+    privacy:
+      'Reports include redacted reader names, signal strength, and match outcomes. Credentials and complete identifiers are never included.',
+  },
   doors: {
     open: 'Open',
     opening: 'Opening…',
