@@ -19,6 +19,8 @@ export type Door = {
   lockout: boolean;
   hours: DoorHoursWindow[];
   timeZone: string;
+  /** Exact BLE reader names or serials authorized for this access point. */
+  nearbyIdentifiers?: string[];
 };
 
 export type UnlockStatus = 'idle' | 'unlocking' | 'open' | 'error';

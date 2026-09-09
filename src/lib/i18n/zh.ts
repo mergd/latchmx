@@ -68,6 +68,13 @@ export const zh: Messages = {
     hidden: '已隐藏',
     yourBuilding: '你的楼宇',
     building: '楼宇',
+    nearby: '附近',
+    findNearby: '查找附近的门',
+    findNearbyBody: '短暂使用蓝牙来推荐你身边的入口。',
+    findingNearby: '正在查找…',
+    scanAgain: '再次扫描',
+    noNearby: '附近没有匹配的门。',
+    nearbyUnavailable: '附近门功能目前不可用。',
   },
   doors: {
     open: '已开',

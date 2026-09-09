@@ -69,6 +69,13 @@ export const hi: Messages = {
     hidden: 'छिपे हुए',
     yourBuilding: 'आपकी इमारत',
     building: 'इमारत',
+    nearby: 'आस-पास',
+    findNearby: 'पास का दरवाज़ा खोजें',
+    findNearbyBody: 'आपके पास का प्रवेश द्वार सुझाने के लिए थोड़ी देर Bluetooth का उपयोग करें।',
+    findingNearby: 'खोज रहे हैं…',
+    scanAgain: 'फिर स्कैन करें',
+    noNearby: 'पास में कोई मिलता हुआ दरवाज़ा नहीं है।',
+    nearbyUnavailable: 'पास के दरवाज़े अभी उपलब्ध नहीं हैं।',
   },
   doors: {
     open: 'खुला',

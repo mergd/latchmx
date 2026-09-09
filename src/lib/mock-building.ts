@@ -20,6 +20,7 @@ export const mockDoors: Door[] = [
   tenantId: -1,
   heldOpen: false,
   disabled: false,
+  nearbyIdentifiers: [],
   lockout: false,
   hours: [],
   timeZone: 'America/Los_Angeles',

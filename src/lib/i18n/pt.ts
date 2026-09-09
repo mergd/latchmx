@@ -69,6 +69,13 @@ export const pt: Messages = {
     hidden: 'Ocultas',
     yourBuilding: 'Seu prédio',
     building: 'Prédio',
+    nearby: 'Por perto',
+    findNearby: 'Encontrar minha porta próxima',
+    findNearbyBody: 'Usa Bluetooth brevemente para sugerir a entrada ao seu lado.',
+    findingNearby: 'Procurando…',
+    scanAgain: 'Procurar novamente',
+    noNearby: 'Nenhuma porta correspondente está próxima.',
+    nearbyUnavailable: 'Portas próximas não estão disponíveis agora.',
   },
   doors: {
     open: 'Aberta',

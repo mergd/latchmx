@@ -69,6 +69,13 @@ export const ne: Messages = {
     hidden: 'लुकाइएका',
     yourBuilding: 'तपाईंको भवन',
     building: 'भवन',
+    nearby: 'नजिकै',
+    findNearby: 'नजिकको ढोका खोज्नुहोस्',
+    findNearbyBody: 'तपाईं नजिकको प्रवेशद्वार सुझाउन छोटो समय Bluetooth प्रयोग गर्नुहोस्।',
+    findingNearby: 'खोज्दै…',
+    scanAgain: 'फेरि स्क्यान गर्नुहोस्',
+    noNearby: 'नजिकै मिल्ने ढोका छैन।',
+    nearbyUnavailable: 'नजिकका ढोकाहरू अहिले उपलब्ध छैनन्।',
   },
   doors: {
     open: 'खुला',

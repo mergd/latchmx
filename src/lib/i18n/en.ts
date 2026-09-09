@@ -67,6 +67,13 @@ export const en = {
     hidden: 'Hidden',
     yourBuilding: 'Your building',
     building: 'Building',
+    nearby: 'Nearby',
+    findNearby: 'Find my nearby door',
+    findNearbyBody: 'Use Bluetooth briefly to suggest the entrance beside you.',
+    findingNearby: 'Finding…',
+    scanAgain: 'Scan again',
+    noNearby: 'No matching door is nearby.',
+    nearbyUnavailable: 'Nearby doors are unavailable right now.',
   },
   doors: {
     open: 'Open',
