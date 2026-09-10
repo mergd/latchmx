@@ -14,7 +14,6 @@ import { useI18n } from '@/lib/i18n/context';
 import {
   nearbyErrorCode,
   nearbyScanProperties,
-  redactReaderName,
   sanitizedReaderSamples,
 } from '@/lib/nearby-diagnostic-data';
 import { setDiagnosticsEnabled } from '@/lib/nearby-diagnostics';
@@ -63,7 +62,7 @@ export default function DiagnosticsScreen() {
     setCopied(false);
     setErrorCode(null);
     try {
-      const next = await NearbyDoors.scanAsync(SCAN_MS);
+      const next = await NearbyDoors.scanAsync(SCAN_MS, true);
       const nextMatches = rankNearbyDoors(eligible, next);
       const matchedReaderIds = new Set(
         next
@@ -102,9 +101,8 @@ export default function DiagnosticsScreen() {
       eligibleDoorCount: eligible.length,
       errorCode,
       readers: peripherals.map((item) => ({
-        reader: redactReaderName(item.name),
-        rssi: item.rssi,
-        samples: item.samples,
+        ...item,
+        name: item.name.length > 0 ? item.name : null,
         match: matchByReader.get(item.id) ?? null,
       })),
     };
@@ -158,14 +156,47 @@ export default function DiagnosticsScreen() {
         ) : null}
         {peripherals.map((item) => {
           const match = matchByReader.get(item.id);
+          const serviceUuids = [
+            ...item.serviceUuids,
+            ...item.overflowServiceUuids,
+            ...item.solicitedServiceUuids,
+          ];
           return (
             <View key={item.id} style={styles.reader}>
               <Text style={styles.readerName}>
-                {redactReaderName(item.name)}
+                {item.name.length > 0 ? item.name : t('diagnostics.unnamed')}
               </Text>
               <Text style={styles.readerMeta}>
-                {item.rssi} dBm · {item.samples} samples
+                {item.rssi} dBm · {item.samples} samples · {item.id}
               </Text>
+              <Text selectable style={styles.readerDetail}>
+                {t('diagnostics.connectable')}:{' '}
+                {item.connectable === undefined
+                  ? t('diagnostics.unknown')
+                  : item.connectable
+                    ? 'true'
+                    : 'false'}
+                {item.txPower === undefined ? '' : ` · TX ${item.txPower} dBm`}
+              </Text>
+              <Text selectable style={styles.readerDetail}>
+                {t('diagnostics.services')}:{' '}
+                {serviceUuids.length > 0 ? serviceUuids.join(', ') : '—'}
+              </Text>
+              <Text selectable style={styles.readerDetail}>
+                {t('diagnostics.manufacturer')}:{' '}
+                {item.manufacturerDataHex === undefined
+                  ? '—'
+                  : `${item.manufacturerId ?? '?'} · ${item.manufacturerDataHex}`}
+              </Text>
+              {item.serviceData.map((entry) => (
+                <Text
+                  key={`${item.id}-${entry.uuid}`}
+                  selectable
+                  style={styles.readerDetail}
+                >
+                  {entry.uuid}: {entry.hex}
+                </Text>
+              ))}
               <Text
                 style={match === undefined ? styles.unmatched : styles.matched}
               >
@@ -232,6 +263,12 @@ const styles = StyleSheet.create({
   },
   readerName: { color: color.text, fontFamily: type.body, fontSize: 16 },
   readerMeta: { color: color.muted, fontFamily: type.body, fontSize: 13 },
+  readerDetail: {
+    color: color.muted,
+    fontFamily: type.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   matched: { color: color.ok, fontFamily: type.body, fontSize: 13 },
   unmatched: { color: color.muted, fontFamily: type.body, fontSize: 13 },
   secondary: {
