@@ -49,7 +49,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
       setScanning(true);
       setError(null);
       try {
-        const peripherals = await NearbyDoors.scanAsync(SCAN_MS);
+        const peripherals = await NearbyDoors.scanAsync(SCAN_MS, false);
         if (sequence === scanSequence.current) {
           const nextMatches = rankNearbyDoors(eligible, peripherals);
           setMatches(nextMatches);
