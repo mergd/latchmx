@@ -975,21 +975,25 @@ function guestSecretFromPath(pathname: string): string | null {
   return /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
 }
 
-/* eslint-disable react-hooks/refs -- The route secret must survive a push to settings without becoming render state. */
 function useGuestSecret(): string | null {
   const pathname = usePathname();
   const fromPath = guestSecretFromPath(pathname);
-  const held = useRef<string | null>(fromPath);
+  const [held, setHeld] = useState<string | null>(fromPath);
 
-  if (fromPath !== null) {
-    held.current = fromPath;
-  } else if (pathname !== '/settings') {
-    held.current = null;
-  }
+  useEffect(() => {
+    if (fromPath === null) {
+      return;
+    }
+    const update = setTimeout(() => {
+      setHeld(fromPath);
+    }, 0);
+    return () => {
+      clearTimeout(update);
+    };
+  }, [fromPath]);
 
-  return fromPath ?? held.current;
+  return fromPath ?? (pathname === '/settings' ? held : null);
 }
-/* eslint-enable react-hooks/refs */
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
