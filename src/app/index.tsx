@@ -50,12 +50,14 @@ export default function BuildingScreen() {
     if (mode !== 'guest' || guestExpiresAt === null) {
       return;
     }
-    setNow(Date.now());
-    const id = setInterval(() => {
+    const update = () => {
       setNow(Date.now());
-    }, 1000);
+    };
+    const initial = setTimeout(update, 0);
+    const interval = setInterval(update, 1000);
     return () => {
-      clearInterval(id);
+      clearTimeout(initial);
+      clearInterval(interval);
     };
   }, [guestExpiresAt, mode]);
 
@@ -86,11 +88,10 @@ export default function BuildingScreen() {
     );
   }
 
-  const clock = now === 0 ? Date.now() : now;
   if (
     mode === 'guest' &&
     (bootError !== null ||
-      (guestExpiresAt !== null && clock >= guestExpiresAt))
+      (guestExpiresAt !== null && now >= guestExpiresAt))
   ) {
     return <DeadKey detail={bootError} />;
   }
@@ -161,11 +162,14 @@ function SignedInHome() {
     if (!guest || guestExpiresAt === null) {
       return;
     }
-    const id = setInterval(() => {
+    const update = () => {
       setNow(Date.now());
-    }, 1000);
+    };
+    const initial = setTimeout(update, 0);
+    const interval = setInterval(update, 1000);
     return () => {
-      clearInterval(id);
+      clearTimeout(initial);
+      clearInterval(interval);
     };
   }, [guest, guestExpiresAt]);
 
@@ -193,15 +197,15 @@ function SignedInHome() {
       });
     }
     return items;
-  }, [groups, hidden.length]);
+  }, [groups, hidden.length, t]);
   const pinnedTarget =
     pinTargets.find((item) => item.label === section) ?? pinTargets[0];
   const pinnedSection = pinnedTarget?.label ?? '';
   const pinnedInk = pinnedTarget?.ink ?? color.accent;
   const stickyStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      scrollY.value,
-      [heroH.value - topInset - 84, heroH.value - topInset - 32],
+      scrollY.get(),
+      [heroH.get() - topInset - 84, heroH.get() - topInset - 32],
       [0, 1],
       Extrapolation.CLAMP,
     ),
@@ -242,7 +246,7 @@ function SignedInHome() {
               scrollEventThrottle={16}
               onScroll={(event) => {
                 const y = event.nativeEvent.contentOffset.y;
-                scrollY.value = y;
+                scrollY.set(y);
                 syncPinnedSection(y);
               }}
             >
@@ -254,7 +258,7 @@ function SignedInHome() {
                 ]}
                 onLayout={(event) => {
                   const height = event.nativeEvent.layout.height;
-                  heroH.value = height;
+                  heroH.set(height);
                   heroHRef.current = height;
                 }}
               >

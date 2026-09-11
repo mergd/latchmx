@@ -49,13 +49,15 @@ export function DoorRow({
   const remaining = timedOpen && openUntil !== null ? openUntil - now : 0;
   const revealing = onReveal !== undefined;
   const closed = door.disabled && !revealing;
-  const clock = now === 0 ? Date.now() : now;
-  const statusHours = hoursStatus(
-    door.hours,
-    clock,
-    door.timeZone ?? 'America/Los_Angeles',
-    door.lockout ? 'lockout' : 'held_open',
-  );
+  const statusHours =
+    now === 0
+      ? null
+      : hoursStatus(
+          door.hours,
+          now,
+          door.timeZone ?? 'America/Los_Angeles',
+          door.lockout ? 'lockout' : 'held_open',
+        );
   const hoursHint =
     statusHours?.hint !== undefined && statusHours.hint.length > 0
       ? statusHours.hint
@@ -73,14 +75,14 @@ export function DoorRow({
     if (!timedOpen && door.hours.length === 0) {
       return;
     }
-    const id = setInterval(
-      () => {
-        setNow(Date.now());
-      },
-      timedOpen ? 50 : 30_000,
-    );
+    const update = () => {
+      setNow(Date.now());
+    };
+    const initial = setTimeout(update, 0);
+    const interval = setInterval(update, timedOpen ? 50 : 30_000);
     return () => {
-      clearInterval(id);
+      clearTimeout(initial);
+      clearInterval(interval);
     };
   }, [door.hours.length, timedOpen]);
 

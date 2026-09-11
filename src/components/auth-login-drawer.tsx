@@ -1,5 +1,5 @@
 import { XIcon } from 'phosphor-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
@@ -33,14 +33,6 @@ export function AuthLoginDrawer({
   const insets = useSafeAreaInsets();
   const captured = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    captured.current = null;
-    setLoading(true);
-  }, [visible]);
 
   const userAgent = Platform.OS === 'ios' ? safariMobileUa : chromeMobileUa;
   const source = useMemo(() => ({ uri: url }), [url]);

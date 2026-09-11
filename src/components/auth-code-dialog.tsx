@@ -48,9 +48,6 @@ export function AuthCodeDialog({
 
   useEffect(() => {
     if (!visible) {
-      setStep('instruct');
-      setCode('');
-      setKeyboardInset(0);
       return;
     }
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';

@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text } from 'react-native';
 
 import { APP_LOCALES, t } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/context';

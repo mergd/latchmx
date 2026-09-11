@@ -91,13 +91,16 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
     if (!loaded || !enabled) {
       return;
     }
-    void scan('automatic');
+    const initial = setTimeout(() => {
+      void scan('automatic');
+    }, 0);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void scan('automatic');
       }
     });
     return () => {
+      clearTimeout(initial);
       scanSequence.current += 1;
       void NearbyDoors.stopAsync();
       subscription.remove();

@@ -975,6 +975,7 @@ function guestSecretFromPath(pathname: string): string | null {
   return /^\/k\/([^/]+)$/.exec(pathname)?.[1] ?? null;
 }
 
+/* eslint-disable react-hooks/refs -- The route secret must survive a push to settings without becoming render state. */
 function useGuestSecret(): string | null {
   const pathname = usePathname();
   const fromPath = guestSecretFromPath(pathname);
@@ -988,6 +989,7 @@ function useGuestSecret(): string | null {
 
   return fromPath ?? held.current;
 }
+/* eslint-enable react-hooks/refs */
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {

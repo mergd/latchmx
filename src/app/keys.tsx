@@ -59,11 +59,14 @@ export default function KeysScreen() {
   }, [listKeys]);
 
   useEffect(() => {
-    const id = setInterval(() => {
+    const update = () => {
       setNow(Date.now());
-    }, 1000);
+    };
+    const initial = setTimeout(update, 0);
+    const interval = setInterval(update, 1000);
     return () => {
-      clearInterval(id);
+      clearTimeout(initial);
+      clearInterval(interval);
     };
   }, []);
 
@@ -132,7 +135,7 @@ export default function KeysScreen() {
     }
   };
 
-  const clock = now === 0 ? Date.now() : now;
+  const clock = now;
   const live = (keys ?? []).filter((key) => key.expiresAt > clock);
   const expired = (keys ?? [])
     .filter((key) => key.expiresAt <= clock)
@@ -264,22 +267,24 @@ export default function KeysScreen() {
         ) : null}
       </ScrollView>
 
-      <InviteDialog
-        visible={composing}
-        busy={busy}
-        error={error}
-        defaultName={account?.name?.trim() ?? ''}
-        defaultContact={account?.email?.trim() ?? ''}
-        onClose={() => {
-          if (!busy) {
-            setComposing(false);
-            setError(null);
-          }
-        }}
-        onCreate={(input) => {
-          void onCreate(input);
-        }}
-      />
+      {composing ? (
+        <InviteDialog
+          visible
+          busy={busy}
+          error={error}
+          defaultName={account?.name?.trim() ?? ''}
+          defaultContact={account?.email?.trim() ?? ''}
+          onClose={() => {
+            if (!busy) {
+              setComposing(false);
+              setError(null);
+            }
+          }}
+          onCreate={(input) => {
+            void onCreate(input);
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         visible={created !== null}
         title={isDemo ? t('keys.demoCreated') : t('keys.inviteLive')}

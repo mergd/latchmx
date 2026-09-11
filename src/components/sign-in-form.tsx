@@ -80,9 +80,9 @@ export function SignInForm() {
       >
         <Text style={styles.demoLabel}>{t('auth.tryDemo')}</Text>
       </Pressable>
-      {web ? (
+      {!awaitingCode ? null : web ? (
         <AuthCodeDialog
-          visible={awaitingCode}
+          visible
           busy={busy}
           error={message}
           onOpenLogin={onOpenLogin}
@@ -94,7 +94,7 @@ export function SignInForm() {
         />
       ) : (
         <AuthLoginDrawer
-          visible={awaitingCode}
+          visible
           busy={busy}
           url={signInUrl}
           onClose={() => {

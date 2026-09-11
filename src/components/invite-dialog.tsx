@@ -65,18 +65,8 @@ export function InviteDialog({
 
   useEffect(() => {
     if (!visible) {
-      setTtl("1h");
-      setLabel("");
-      setNote("");
-      setInviterName(defaultName);
-      setContact(defaultContact);
-      setDurationOpen(false);
-      setKeyboardInset(0);
-      setMenuKeyboardInset(0);
       return;
     }
-    setInviterName(defaultName);
-    setContact(defaultContact);
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent =
@@ -91,7 +81,7 @@ export function InviteDialog({
       show.remove();
       hide.remove();
     };
-  }, [defaultContact, defaultName, visible]);
+  }, [visible]);
 
   const activeKeyboardInset =
     Platform.OS === "ios" && durationOpen

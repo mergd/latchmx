@@ -41,11 +41,6 @@ const config: ExpoConfig = {
   scheme: 'latch',
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
-  autolinking: {
-    ios: {
-      buildFromSource: ['react-native-reanimated', 'react-native-worklets'],
-    },
-  },
   ios: {
     buildNumber: '18',
     icon: './assets/images/icon.png',
@@ -74,6 +69,8 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-font',
+    'expo-image',
     [
       'expo-localization',
       {

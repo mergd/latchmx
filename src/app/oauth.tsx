@@ -21,11 +21,7 @@ export default function OAuthRedirect() {
   const code = Array.isArray(raw) ? raw[0] : raw;
 
   useEffect(() => {
-    if (mode === 'loading') {
-      return;
-    }
-    if (code === undefined || code.length === 0) {
-      setStatus('done');
+    if (mode === 'loading' || code === undefined || code.length === 0) {
       return;
     }
     let cancelled = false;
@@ -48,7 +44,10 @@ export default function OAuthRedirect() {
     };
   }, [code, completeSignIn, mode]);
 
-  if (status === 'done') {
+  if (
+    status === 'done' ||
+    (mode !== 'loading' && (code === undefined || code.length === 0))
+  ) {
     return <Redirect href="/" />;
   }
 
