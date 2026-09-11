@@ -105,7 +105,7 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
             lockout: false,
             hours: hoursFromRecord(record),
             timeZone,
-            nearbyIdentifiers: nearbyIdentifiersForAccessPoint(point, hardware),
+            nearbyIdentifiers: [],
           }];
         });
         const fromDevices: Door[] = hardware.flatMap((device) => {
@@ -212,100 +212,6 @@ function uniqueById<T extends { id: number }>(items: T[]): T[] {
     next.push(item);
   }
   return next;
-}
-
-const READER_IDENTIFIER_KEYS = [
-  'serial_number',
-  'serialNumber',
-  'device_serial',
-  'deviceSerial',
-  'ble_name',
-  'bleName',
-] as const;
-
-/**
- * The current REST API is permissively typed. Newer ButterflyMX responses put
- * Intercom readers and cloud-controller reader serials on an access point; old
- * responses may only associate a device through `device_ids`.
- */
-export function nearbyIdentifiersForAccessPoint(
-  point: ButterflyMxAccessPoint,
-  devices: ButterflyMxDevice[],
-): string[] {
-  const record = asRecord(point);
-  if (record === null) {
-    return [];
-  }
-  const values: string[] = [];
-  collectStrings(
-    record.cloud_based_access_controller_reader_serial_numbers ??
-      record.cloudBasedAccessControllerReaderSerialNumbers,
-    values,
-  );
-  collectReaderRecords(record.intercom_devices ?? record.intercomDevices, values);
-
-  const associated = new Set(
-    Array.isArray(point.device_ids)
-      ? point.device_ids.filter((id): id is number => typeof id === 'number')
-      : [],
-  );
-  for (const device of devices) {
-    if (!associated.has(device.id)) {
-      continue;
-    }
-    const deviceRecord = asRecord(device);
-    if (deviceRecord === null) {
-      continue;
-    }
-    for (const key of READER_IDENTIFIER_KEYS) {
-      collectStrings(deviceRecord[key], values);
-    }
-    if (typeof device.name === 'string' && isKnownIntercomName(device.name)) {
-      values.push(device.name);
-    }
-  }
-  return [...new Set(values.map(normalizeReaderIdentifier).filter(isUsableReaderIdentifier))];
-}
-
-function collectReaderRecords(value: unknown, target: string[]): void {
-  if (!Array.isArray(value)) {
-    return;
-  }
-  for (const item of value) {
-    const record = asRecord(item);
-    if (record === null) {
-      continue;
-    }
-    for (const key of READER_IDENTIFIER_KEYS) {
-      collectStrings(record[key], target);
-    }
-  }
-}
-
-function collectStrings(value: unknown, target: string[]): void {
-  if (typeof value === 'string') {
-    target.push(value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      if (typeof item === 'string') {
-        target.push(item);
-      }
-    }
-  }
-}
-
-function normalizeReaderIdentifier(value: string): string {
-  return value.trim().toUpperCase();
-}
-
-function isUsableReaderIdentifier(value: string): boolean {
-  return value.length >= 6 && value.length <= 80;
-}
-
-function isKnownIntercomName(value: string): boolean {
-  return /^(?:M108|M112|MP108|MP112)-/i.test(value.trim());
 }
 
 function isHiddenRecord(record: JsonRecord): boolean {

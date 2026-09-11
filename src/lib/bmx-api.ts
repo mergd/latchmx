@@ -5,8 +5,13 @@ import {
   loadDoors,
   releaseDoorOn,
 } from "@/lib/bmx-doors";
+import { fetchNearbyReaderMetadata } from '@/lib/bmx-nearby-readers';
 import { asRecord, errorMessage } from "@/lib/bmx-json";
-import { bmxAccountsBaseUrl, bmxConfig } from "@/lib/config";
+import {
+  bmxAccountsBaseUrl,
+  bmxApiBaseUrl,
+  bmxConfig,
+} from "@/lib/config";
 import type { AuthTokens, Door } from "@/lib/types";
 
 async function readJson(response: Response): Promise<unknown> {
@@ -131,7 +136,24 @@ export function authorizationCodeFromUrl(url: string): string | null {
 }
 
 export async function fetchDoors(accessToken: string) {
-  return loadDoors(createBmxClient(accessToken));
+  const [snapshot, nearbyReaders] = await Promise.all([
+    loadDoors(createBmxClient(accessToken)),
+    fetchNearbyReaderMetadata(
+      accessToken,
+      bmxGraphqlUrl(),
+    ).catch(() => new Map<number, string[]>()),
+  ]);
+  return {
+    ...snapshot,
+    doors: snapshot.doors.map((door) =>
+      door.kind === 'access_point'
+        ? {
+            ...door,
+            nearbyIdentifiers: [...(nearbyReaders.get(door.remoteId) ?? [])],
+          }
+        : door,
+    ),
+  };
 }
 
 export async function releaseDoor(
@@ -157,6 +179,13 @@ function webProxyUrl(path: string): string {
     throw new Error("Could not resolve the local API origin.");
   }
   return `${origin}${path}`;
+}
+
+function bmxGraphqlUrl(): string {
+  const path = '/denizen/v1/graphql';
+  return Platform.OS === 'web'
+    ? webProxyUrl(`/api/bmx${path}`)
+    : `${bmxApiBaseUrl()}${path}`;
 }
 
 function tokensFromResponse(

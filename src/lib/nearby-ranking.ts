@@ -1,4 +1,5 @@
 import type { NearbyPeripheral } from '../../modules/nearby-doors';
+import { observedReaderIdentifiers } from './nearby-reader-identifiers';
 import type { Door } from './types';
 
 export type NearbyDoorMatch = {
@@ -15,10 +16,13 @@ export function rankNearbyDoors(
   for (const door of doors) {
     let best: NearbyPeripheral | null = null;
     for (const peripheral of peripherals) {
+      const observed = observedReaderIdentifiers(peripheral);
       if (
         peripheral.rssi < -90 ||
         !(door.nearbyIdentifiers ?? []).some((identifier) =>
-          readerNameMatches(identifier, peripheral.name),
+          observed.some((candidate) =>
+            readerNameMatches(identifier, candidate),
+          ),
         )
       ) {
         continue;
