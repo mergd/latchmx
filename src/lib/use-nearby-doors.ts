@@ -12,7 +12,7 @@ import { storageGet, storageSet } from './storage';
 import type { Door } from './types';
 
 const ENABLED_KEY = 'latch.nearby-doors.enabled';
-const SCAN_MS = 2200;
+const SCAN_MS = 5000;
 
 export function useNearbyDoors(doors: Door[], active: boolean) {
   const eligible = useMemo(
@@ -23,8 +23,8 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   const [loaded, setLoaded] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [matches, setMatches] = useState<NearbyDoorMatch[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const scanSequence = useRef(0);
+  const scanInFlight = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,15 +41,24 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
 
   const scan = useCallback(
     async (source: 'automatic' | 'manual') => {
-      if (Platform.OS !== 'ios' || !active || eligible.length === 0) {
+      if (
+        Platform.OS !== 'ios' ||
+        !active ||
+        eligible.length === 0 ||
+        scanInFlight.current
+      ) {
         return;
       }
       const sequence = ++scanSequence.current;
       const startedAt = Date.now();
+      scanInFlight.current = true;
       setScanning(true);
-      setError(null);
+      setMatches([]);
       try {
-        const peripherals = await NearbyDoors.scanAsync(SCAN_MS, false);
+        // WaveLynx readers may carry their authorized serial only in service
+        // data, without a local name. Keep them in the private scan result and
+        // let the exact allowlist matcher decide whether they reach the UI.
+        const peripherals = await NearbyDoors.scanAsync(SCAN_MS, true);
         if (sequence === scanSequence.current) {
           const nextMatches = rankNearbyDoors(eligible, peripherals);
           setMatches(nextMatches);
@@ -66,11 +75,6 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
       } catch (caught) {
         if (sequence === scanSequence.current) {
           setMatches([]);
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : 'Bluetooth is unavailable.',
-          );
           capture('nearby_scan_failed', {
             source,
             error_code: nearbyErrorCode(caught),
@@ -80,6 +84,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
         }
       } finally {
         if (sequence === scanSequence.current) {
+          scanInFlight.current = false;
           setScanning(false);
         }
       }
@@ -97,11 +102,18 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void scan('automatic');
+      } else {
+        scanSequence.current += 1;
+        scanInFlight.current = false;
+        setMatches([]);
+        setScanning(false);
+        void NearbyDoors.stopAsync();
       }
     });
     return () => {
       clearTimeout(initial);
       scanSequence.current += 1;
+      scanInFlight.current = false;
       void NearbyDoors.stopAsync();
       subscription.remove();
     };
@@ -120,7 +132,6 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
     enabled,
     scanning,
     matches,
-    error,
     enable,
     refresh: () => scan('manual'),
   };

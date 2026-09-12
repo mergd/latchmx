@@ -12,7 +12,6 @@ type NearbyDoorSuggestionProps = {
   enabled: boolean;
   scanning: boolean;
   matches: NearbyDoorMatch[];
-  error: string | null;
   openUntilByDoorId: Record<string, number>;
   onEnable: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -24,7 +23,6 @@ export function NearbyDoorSuggestion({
   enabled,
   scanning,
   matches,
-  error,
   openUntilByDoorId,
   onEnable,
   onRefresh,
@@ -53,6 +51,10 @@ export function NearbyDoorSuggestion({
     );
   }
 
+  if (matches.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.shell}>
       <View style={styles.header}>
@@ -67,37 +69,31 @@ export function NearbyDoorSuggestion({
           <Text
             style={[styles.action, scanning ? styles.actionDisabled : null]}
           >
-            {scanning ? t('home.findingNearby') : t('home.scanAgain')}
+            {t('home.scanAgain')}
           </Text>
         </Pressable>
       </View>
-      {matches.length > 0 ? (
-        <View style={styles.results}>
-          {matches.map(({ door, rssi, samples }, index) => (
-            <DoorRow
-              key={door.id}
-              door={door}
-              arranging={false}
-              sortable={false}
-              last={index === matches.length - 1}
-              openUntil={openUntilByDoorId[door.id] ?? null}
-              onUnlock={async (selected) => {
-                capture('nearby_suggestion_selected', {
-                  rank: index + 1,
-                  rssi,
-                  samples,
-                  candidate_count: matches.length,
-                });
-                await onUnlock(selected);
-              }}
-            />
-          ))}
-        </View>
-      ) : !scanning ? (
-        <Text style={styles.empty}>
-          {error === null ? t('home.noNearby') : t('home.nearbyUnavailable')}
-        </Text>
-      ) : null}
+      <View style={styles.results}>
+        {matches.map(({ door, rssi, samples }, index) => (
+          <DoorRow
+            key={door.id}
+            door={door}
+            arranging={false}
+            sortable={false}
+            last={index === matches.length - 1}
+            openUntil={openUntilByDoorId[door.id] ?? null}
+            onUnlock={async (selected) => {
+              capture('nearby_suggestion_selected', {
+                rank: index + 1,
+                rssi,
+                samples,
+                candidate_count: matches.length,
+              });
+              await onUnlock(selected);
+            }}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -154,12 +150,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: color.canvas,
-  },
-  empty: {
-    color: color.muted,
-    fontFamily: type.body,
-    fontSize: 13,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
   },
 });
