@@ -306,7 +306,6 @@ function SignedInHome() {
                 {...nearby}
                 openUntilByDoorId={openUntilByDoorId}
                 onEnable={nearby.enable}
-                onRefresh={nearby.refresh}
                 onUnlock={unlock}
               />
               <View

@@ -2,6 +2,8 @@ import type { NearbyPeripheral } from '../../modules/nearby-doors';
 import { observedReaderIdentifiers } from './nearby-reader-identifiers';
 import type { Door } from './types';
 
+const MIN_NEARBY_RSSI = -100;
+
 export type NearbyDoorMatch = {
   door: Door;
   rssi: number;
@@ -18,7 +20,9 @@ export function rankNearbyDoors(
     for (const peripheral of peripherals) {
       const observed = observedReaderIdentifiers(peripheral);
       if (
-        peripheral.rssi < -90 ||
+        !Number.isFinite(peripheral.rssi) ||
+        peripheral.rssi >= 0 ||
+        peripheral.rssi < MIN_NEARBY_RSSI ||
         !(door.nearbyIdentifiers ?? []).some((identifier) =>
           observed.some((candidate) =>
             readerNameMatches(identifier, candidate),

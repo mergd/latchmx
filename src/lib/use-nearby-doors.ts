@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import NearbyDoors from '../../modules/nearby-doors';
 import { capture } from './analytics';
@@ -12,7 +13,8 @@ import { storageGet, storageSet } from './storage';
 import type { Door } from './types';
 
 const ENABLED_KEY = 'latch.nearby-doors.enabled';
-const SCAN_MS = 5000;
+const SCAN_MS = 3000;
+const SCAN_INTERVAL_MS = 4000;
 
 export function useNearbyDoors(doors: Door[], active: boolean) {
   const eligible = useMemo(
@@ -21,7 +23,6 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   );
   const [enabled, setEnabled] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [matches, setMatches] = useState<NearbyDoorMatch[]>([]);
   const scanSequence = useRef(0);
   const scanInFlight = useRef(false);
@@ -40,10 +41,11 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   }, []);
 
   const scan = useCallback(
-    async (source: 'automatic' | 'manual') => {
+    async () => {
       if (
         Platform.OS !== 'ios' ||
         !active ||
+        AppState.currentState !== 'active' ||
         eligible.length === 0 ||
         scanInFlight.current
       ) {
@@ -52,8 +54,6 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
       const sequence = ++scanSequence.current;
       const startedAt = Date.now();
       scanInFlight.current = true;
-      setScanning(true);
-      setMatches([]);
       try {
         // WaveLynx readers may carry their authorized serial only in service
         // data, without a local name. Keep them in the private scan result and
@@ -63,7 +63,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
           const nextMatches = rankNearbyDoors(eligible, peripherals);
           setMatches(nextMatches);
           capture('nearby_scan_completed', {
-            source,
+            source: 'automatic',
             ...nearbyScanProperties(
               peripherals,
               nextMatches,
@@ -76,7 +76,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
         if (sequence === scanSequence.current) {
           setMatches([]);
           capture('nearby_scan_failed', {
-            source,
+            source: 'automatic',
             error_code: nearbyErrorCode(caught),
             eligible_door_count: eligible.length,
             elapsed_ms: Date.now() - startedAt,
@@ -85,39 +85,40 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
       } finally {
         if (sequence === scanSequence.current) {
           scanInFlight.current = false;
-          setScanning(false);
         }
       }
     },
     [active, eligible],
   );
 
-  useEffect(() => {
-    if (!loaded || !enabled) {
+  useFocusEffect(useCallback(() => {
+    if (!loaded || !enabled || !active || Platform.OS !== 'ios' || eligible.length === 0) {
       return;
     }
     const initial = setTimeout(() => {
-      void scan('automatic');
+      setMatches([]);
+      void scan();
     }, 0);
+    const interval = setInterval(() => void scan(), SCAN_INTERVAL_MS);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void scan('automatic');
+        void scan();
       } else {
         scanSequence.current += 1;
         scanInFlight.current = false;
         setMatches([]);
-        setScanning(false);
         void NearbyDoors.stopAsync();
       }
     });
     return () => {
       clearTimeout(initial);
+      clearInterval(interval);
       scanSequence.current += 1;
       scanInFlight.current = false;
       void NearbyDoors.stopAsync();
       subscription.remove();
     };
-  }, [enabled, loaded, scan]);
+  }, [active, eligible.length, enabled, loaded, scan]));
 
   const enable = useCallback(async () => {
     await storageSet(ENABLED_KEY, 'true');
@@ -130,9 +131,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   return {
     available: Platform.OS === 'ios' && active && eligible.length > 0,
     enabled,
-    scanning,
     matches,
     enable,
-    refresh: () => scan('manual'),
   };
 }

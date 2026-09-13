@@ -10,22 +10,18 @@ import type { Door } from '@/lib/types';
 type NearbyDoorSuggestionProps = {
   available: boolean;
   enabled: boolean;
-  scanning: boolean;
   matches: NearbyDoorMatch[];
   openUntilByDoorId: Record<string, number>;
   onEnable: () => Promise<void>;
-  onRefresh: () => Promise<void>;
   onUnlock: (door: Door) => Promise<void>;
 };
 
 export function NearbyDoorSuggestion({
   available,
   enabled,
-  scanning,
   matches,
   openUntilByDoorId,
   onEnable,
-  onRefresh,
   onUnlock,
 }: NearbyDoorSuggestionProps) {
   const { t } = useI18n();
@@ -59,19 +55,6 @@ export function NearbyDoorSuggestion({
     <View style={styles.shell}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('home.nearby')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('home.scanAgain')}
-          disabled={scanning}
-          hitSlop={8}
-          onPress={() => void onRefresh()}
-        >
-          <Text
-            style={[styles.action, scanning ? styles.actionDisabled : null]}
-          >
-            {t('home.scanAgain')}
-          </Text>
-        </Pressable>
       </View>
       <View style={styles.results}>
         {matches.map(({ door, rssi, samples }, index) => (
@@ -137,14 +120,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-  },
-  action: {
-    color: color.accent,
-    fontFamily: type.body,
-    fontSize: 12,
-  },
-  actionDisabled: {
-    color: color.muted,
   },
   results: {
     borderRadius: 14,
