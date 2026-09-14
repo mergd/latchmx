@@ -47,6 +47,7 @@ dist/dev-session.json
 # generated native folders
 /ios
 /android
+modules/*/android/build/
 
 # local icon exploration
 assets/brand/concepts/
