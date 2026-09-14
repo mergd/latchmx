@@ -54,7 +54,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'dev.fldr.latch',
-    versionCode: 3,
+    versionCode: 4,
     adaptiveIcon: {
       backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',

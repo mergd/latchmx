@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, PermissionsAndroid, Platform } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import NearbyDoors from '../../modules/nearby-doors';
@@ -43,7 +43,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   const scan = useCallback(
     async () => {
       if (
-        Platform.OS !== 'ios' ||
+        (Platform.OS !== 'ios' && Platform.OS !== 'android') ||
         !active ||
         AppState.currentState !== 'active' ||
         eligible.length === 0 ||
@@ -92,7 +92,13 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   );
 
   useFocusEffect(useCallback(() => {
-    if (!loaded || !enabled || !active || Platform.OS !== 'ios' || eligible.length === 0) {
+    if (
+      !loaded ||
+      !enabled ||
+      !active ||
+      (Platform.OS !== 'ios' && Platform.OS !== 'android') ||
+      eligible.length === 0
+    ) {
       return;
     }
     const initial = setTimeout(() => {
@@ -121,6 +127,25 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   }, [active, eligible.length, enabled, loaded, scan]));
 
   const enable = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      const permissions =
+        typeof Platform.Version === 'number' && Platform.Version >= 31
+          ? [
+              PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+              PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            ]
+          : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+      const results = await PermissionsAndroid.requestMultiple(permissions);
+      if (
+        permissions.some(
+          (permission) =>
+            results[permission] !== PermissionsAndroid.RESULTS.GRANTED,
+        )
+      ) {
+        capture('nearby_suggestions_permission_denied');
+        return;
+      }
+    }
     await storageSet(ENABLED_KEY, 'true');
     setEnabled(true);
     capture('nearby_suggestions_enabled', {
@@ -129,7 +154,10 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   }, [eligible.length]);
 
   return {
-    available: Platform.OS === 'ios' && active && eligible.length > 0,
+    available:
+      (Platform.OS === 'ios' || Platform.OS === 'android') &&
+      active &&
+      eligible.length > 0,
     enabled,
     matches,
     enable,

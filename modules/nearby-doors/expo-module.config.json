@@ -1,5 +1,8 @@
 {
-  "platforms": ["ios"],
+  "platforms": ["android", "ios"],
+  "android": {
+    "modules": ["expo.modules.latchnearbydoors.LatchNearbyDoorsModule"]
+  },
   "apple": {
     "modules": ["LatchNearbyDoorsModule"]
   }
