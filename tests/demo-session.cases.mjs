@@ -61,6 +61,7 @@ const calls = [];
 const data = new Map();
 const reads = [];
 const writes = [];
+let fetchDoorsImpl;
 const realAccount = { id: 'real-owner', kind: 'resident', name: 'Resident', email: 'resident@example.com', buildingName: 'Real building', createdAt: 1 };
 const realDoor = { id: 'ap-real', remoteId: 1, buildingId: 123, buildingName: 'Real building', tenantId: 123, kind: 'access_point', name: 'Real door', heldOpen: false, disabled: false, hours: [] };
 const record = name => async (...args) => { calls.push([name, ...args]); };
@@ -71,17 +72,22 @@ mock.module('expo-splash-screen', () => ({ hideAsync: async () => {} }));
 mock.module('expo-linking', () => ({ getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) }));
 mock.module('../src/lib/storage', () => ({
   storageGet: async key => { reads.push(key); return data.get(key) ?? null; },
+  storageGetMany: async keys => Object.fromEntries(keys.map(key => { reads.push(key); return [key, data.get(key) ?? null]; })),
   storageSet: async (key, value) => { writes.push(key); data.set(key, value); },
   storageRemove: async key => { writes.push(key); data.delete(key); },
 }));
 mock.module('../src/lib/account', () => ({
+  ACCOUNT_KEY: 'latch.account',
   loadAccount: async () => { calls.push(['loadAccount']); return realAccount; },
+  parseAccount: raw => raw === null ? null : JSON.parse(raw),
   persistAccount: record('persistAccount'),
   residentFromProfile: () => realAccount,
   guestFromInvite: () => realAccount,
 }));
 mock.module('../src/lib/analytics', () => ({ capture: record('capture'), resetAnalytics: record('resetAnalytics') }));
 mock.module('../src/lib/i18n', () => ({
+  activeLocale: () => 'en',
+  localeTag: () => 'en-US',
   t: (key) => key,
   localizeError: (message) => message,
   errorText: (error, fallback) => (error instanceof Error ? error.message : fallback),
@@ -94,10 +100,12 @@ mock.module('../src/lib/bmx-api', () => ({
   exchangeAuthorizationCode: record('exchangeAuthorizationCode'),
   refreshAccessToken: record('refreshAccessToken'),
   releaseDoor: record('releaseDoor'),
-  fetchDoors: async () => { calls.push(['fetchDoors']); return { doors: [realDoor], account: realAccount }; },
+  enrichDoorsWithNearbyReaders: async (_token, doors) => doors,
+  enrichDoorsWithSchedules: async (_token, doors) => doors,
+  fetchDoors: async () => { calls.push(['fetchDoors']); return fetchDoorsImpl(); },
 }));
 mock.module('../src/lib/keys', () => ({
-  createKey: record('createKey'), listKeys: record('listKeys'), revokeKey: record('revokeKey'),
+  createKey: record('createKey'), listKeys: record('listKeys'), updateKey: record('updateKey'), revokeKey: record('revokeKey'),
   fetchGuestSession: async () => { calls.push(['fetchGuestSession']); throw new Error('Test guest'); },
   guestUnlock: record('guestUnlock'), pingGuestSession: record('pingGuestSession'),
   isDeadKeyError: error => /this key is dead/i.test(error.message),
@@ -115,6 +123,7 @@ beforeEach(() => {
   data.set('latch.layout', JSON.stringify({ groupOrder: ['real-group'], doorOrder: {} }));
   data.set('latch.hidden', JSON.stringify({ 'ap-real': true }));
   data.set('latch.demo.enabled', 'true');
+  fetchDoorsImpl = async () => ({ doors: [realDoor], account: realAccount });
 });
 afterEach(() => {
   for (const runner of mounted.splice(0)) runner.close();
@@ -146,6 +155,10 @@ for (const os of ['ios', 'android', 'web']) {
     const invite = await session().createKey(input);
     expect(invite.doorCount).toBe(5);
     expect((await session().listKeys())[0].url).toBe(invite.url);
+    const updated = await session().updateKey(invite.id, {
+      label: 'Updated invite', note: input.note, inviterName: input.inviterName, contact: input.contact,
+    });
+    expect(updated.url).toBe(invite.url);
     path = `/k/${invite.id}`;
     await state.settle();
     expect(session().mode).toBe('guest');
@@ -188,10 +201,29 @@ test('normal resident sessions still load real doors and use the real unlock pat
   const { session } = await mount();
   expect(session().isDemo).toBe(false);
   expect(session().mode).toBe('signed_in');
-  expect(session().doors).toEqual([realDoor]);
+  expect(session().doors).toHaveLength(1);
+  expect(session().doors[0]).toMatchObject(realDoor);
   await session().unlock(realDoor);
   expect(calls.some(call => call[0] === 'releaseDoor' && call[1] === 'resident-token')).toBe(true);
   expect(reads).toContain('latch.tokens');
+});
+
+test('resident sessions render cached doors while the network refresh is pending', async () => {
+  data.delete('latch.demo.enabled');
+  const cachedDoor = { ...realDoor, id: 'ap-cached', name: 'Cached door' };
+  data.set('latch.account', JSON.stringify(realAccount));
+  data.set('latch.live-doors-cache.v1', JSON.stringify({
+    doors: [cachedDoor],
+    account: realAccount,
+    buildingName: 'Cached building',
+  }));
+  fetchDoorsImpl = () => new Promise(() => {});
+
+  const { session } = await mount();
+
+  expect(session().mode).toBe('signed_in');
+  expect(session().doors).toEqual([cachedDoor]);
+  expect(session().buildingName).toBe('Cached building');
 });
 
 test('real guest links override a saved demo preference', async () => {

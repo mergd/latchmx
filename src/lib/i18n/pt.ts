@@ -19,6 +19,9 @@ export const pt: Messages = {
     loading: 'Carregando',
     tryAgain: 'Tentar novamente',
     contact: 'Contato',
+    enable: 'Ativar',
+    edit: 'Editar',
+    save: 'Salvar',
   },
   app: {
     snag: '%{name} deu um problema',
@@ -27,6 +30,7 @@ export const pt: Messages = {
   auth: {
     signIn: 'Entrar',
     signingIn: 'Entrando',
+    loggedIn: 'Você entrou',
     tryDemo: 'Testar demo',
     signOut: 'Sair',
     signOutTitle: 'Sair?',
@@ -54,6 +58,9 @@ export const pt: Messages = {
   },
   home: {
     signInTitle: 'Entrar',
+    welcomeTitle: 'Boas-vindas ao %{name}',
+    welcomeBody:
+      'As portas do seu prédio estão prontas. Toque em uma porta para abrir, use Por perto para sugestões por Bluetooth e crie chaves temporárias em Chaves.',
     dragSections: 'Arraste as seções para reordenar',
     noDoors: 'Ainda não há portas',
     noDoorsBody:
@@ -141,6 +148,7 @@ export const pt: Messages = {
       'Convites de demo só funcionam neste aparelho. Use Prévia para testar a experiência de convidado.',
     preview: 'Prévia',
     previewInvite: 'Prévia de %{label}',
+    editInvite: 'Editar %{label}',
     revoke: 'Revogar',
     revokeTitle: 'Revogar este convite?',
     revokeDemo: 'Este convite de demo vai parar de funcionar neste aparelho.',
@@ -167,6 +175,7 @@ export const pt: Messages = {
   },
   invite: {
     title: 'Convidar',
+    editTitle: 'Editar convite',
     forLabel: 'Para quem ou para quê?',
     forPlaceholder: 'Festa hoje à noite ou Ana Silva',
     noteLabel: 'Algo que a pessoa precise saber? (opcional)',
@@ -176,6 +185,7 @@ export const pt: Messages = {
     howLong: 'Duração',
     howLongValue: 'Duração, %{label}',
     inviting: 'Convidando…',
+    saving: 'Salvando…',
     hour1: '1 hora',
     hour1Hint: 'Para quem já está a caminho',
     tonight: 'Esta noite',
@@ -241,6 +251,7 @@ export const pt: Messages = {
     loadKeys: 'Não foi possível carregar as chaves.',
     copyLink: 'Não foi possível copiar esse link.',
     revokeKey: 'Não foi possível revogar essa chave.',
+    updateKey: 'Não foi possível atualizar esse convite.',
     shareLink: 'Não foi possível compartilhar esse link.',
     sessionExpired: 'A sessão expirou. Entre de novo.',
     loadDoors: 'Não foi possível carregar as portas.',

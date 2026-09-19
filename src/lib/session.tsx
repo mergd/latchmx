@@ -14,8 +14,10 @@ import {
 import { AppState, Platform } from 'react-native';
 
 import {
+  ACCOUNT_KEY,
   guestFromInvite,
   loadAccount,
+  parseAccount,
   persistAccount,
   residentFromProfile,
 } from '@/lib/account';
@@ -23,6 +25,8 @@ import { capture, resetAnalytics } from '@/lib/analytics';
 import {
   authorizationCodeFromUrl,
   authorizationUrl,
+  enrichDoorsWithNearbyReaders,
+  enrichDoorsWithSchedules,
   exchangeAuthorizationCode,
   extractAuthorizationCode,
   fetchDoors,
@@ -31,6 +35,7 @@ import {
 } from '@/lib/bmx-api';
 import { bmxConfig, hasBmxCredentials } from '@/lib/config';
 import { createDemoStore, DEMO_ENABLED_STORAGE, isDemoSecret } from '@/lib/demo';
+import { isWithinHours } from '@/lib/door-hours';
 import { mockAccount, mockBuildingName, mockDoors } from '@/lib/mock-building';
 import {
   createKey as createKeyRequest,
@@ -40,8 +45,14 @@ import {
   listKeys as listKeysRequest,
   pingGuestSession,
   revokeKey as revokeKeyRequest,
+  updateKey as updateKeyRequest,
 } from '@/lib/keys';
-import { storageGet, storageRemove, storageSet } from '@/lib/storage';
+import {
+  storageGet,
+  storageGetMany,
+  storageRemove,
+  storageSet,
+} from '@/lib/storage';
 import {
   DOOR_OPEN_MS,
   type Account,
@@ -65,6 +76,7 @@ import {
 } from '@/lib/zones';
 
 const TOKEN_KEY = 'latch.tokens';
+const LIVE_DOORS_CACHE_KEY = 'latch.live-doors-cache.v1';
 const demoStore = createDemoStore(
   { get: storageGet, set: storageSet },
   () => Crypto.randomUUID(),
@@ -121,6 +133,13 @@ type SessionContextValue = {
     contact: string;
   }) => Promise<CreatedKey>;
   listKeys: () => Promise<IssuedKey[]>;
+  updateKey: (keyId: string, input: {
+    ttl?: KeyTtl;
+    label: string;
+    note: string;
+    inviterName: string;
+    contact: string;
+  }) => Promise<IssuedKey>;
   revokeKey: (keyId: string) => Promise<void>;
 };
 
@@ -177,6 +196,7 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
   const [guestInvite, setGuestInvite] = useState<GuestInvite | null>(null);
   const guestSecret = useGuestSecret();
   const bootSeq = useRef(0);
+  const liveDoors = useRef<Door[]>([]);
   const seenAuthUrl = useRef<string | null>(null);
   const signInInFlight = useRef<{
     code: string;
@@ -256,38 +276,124 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
     if (seq !== bootSeq.current) {
       return;
     }
+    const doorsStartedAt = Date.now();
     const snapshot = unpackLiveBuilding(await fetchDoors(fresh.accessToken));
     if (seq !== bootSeq.current) {
       return;
     }
     const nextBuilding = snapshot.doors[0]?.buildingName ?? 'Your building';
+    liveDoors.current = snapshot.doors;
     setDoors(snapshot.doors);
     setBuildingName(nextBuilding);
     setBootError(null);
     setMode('signed_in');
+    captureStartupTiming('core_doors', doorsStartedAt, {
+      door_count: snapshot.doors.length,
+    });
     const stored = await loadAccount();
     if (seq !== bootSeq.current) {
       return;
     }
     const next = residentFromProfile(stored, snapshot.account, nextBuilding);
     setAccount(next);
-    await persistAccount(next);
+    const schedulesStartedAt = Date.now();
+    const schedules = enrichDoorsWithSchedules(
+      fresh.accessToken,
+      snapshot.doors,
+    );
+    const nearbyStartedAt = Date.now();
+    const nearby = enrichDoorsWithNearbyReaders(
+      fresh.accessToken,
+      snapshot.doors,
+    );
+    await Promise.all([
+      persistAccount(next),
+      persistLiveDoorsCache({
+        doors: snapshot.doors,
+        account: snapshot.account,
+        buildingName: nextBuilding,
+      }),
+    ]);
+    void schedules
+      .then(async (scheduledDoors) => {
+        if (seq !== bootSeq.current) return;
+        const merged = mergeScheduleEnrichment(liveDoors.current, scheduledDoors);
+        liveDoors.current = merged;
+        setDoors(merged);
+        await persistLiveDoorsCache({
+          doors: merged,
+          account: snapshot.account,
+          buildingName: nextBuilding,
+        });
+        captureStartupTiming('door_schedules', schedulesStartedAt, {
+          pending_count: merged.filter((door) => door.schedulePending === true)
+            .length,
+        });
+      })
+      .catch(() => {
+        captureStartupTiming('door_schedules_failed', schedulesStartedAt);
+      });
+    void nearby
+      .then(async (enrichedDoors) => {
+        if (seq !== bootSeq.current) return;
+        const merged = mergeNearbyEnrichment(liveDoors.current, enrichedDoors);
+        liveDoors.current = merged;
+        setDoors(merged);
+        await persistLiveDoorsCache({
+          doors: merged,
+          account: snapshot.account,
+          buildingName: nextBuilding,
+        });
+        captureStartupTiming('bluetooth_metadata', nearbyStartedAt, {
+          door_count: merged.filter(
+            (door) => (door.nearbyIdentifiers?.length ?? 0) > 0,
+          ).length,
+        });
+      })
+      .catch(() => {
+        captureStartupTiming('bluetooth_metadata_failed', nearbyStartedAt);
+      });
   }, [demo, persistTokens]);
 
   useEffect(() => {
     const seq = ++bootSeq.current;
 
     async function hydrate() {
+      const startupStartedAt = Date.now();
       if (guestSecret !== null) {
         await loadGuest(guestSecret);
         return;
       }
       try {
-        const stored = demo ? null : await storageGet(TOKEN_KEY, { secure: true });
-        const storedZones = await storageGet(ZONE_KEY);
-        const storedLayout = await storageGet(LAYOUT_KEY);
-        const storedHidden = await storageGet(HIDDEN_KEY);
-        const storedAccount = demo ? mockAccount : await loadAccount();
+        const storageStartedAt = Date.now();
+        const [stored, local] = await Promise.all([
+          demo
+            ? Promise.resolve(null)
+            : storageGet(TOKEN_KEY, { secure: true }),
+          storageGetMany(
+            demo
+              ? [ZONE_KEY, LAYOUT_KEY, HIDDEN_KEY]
+              : [
+                  ZONE_KEY,
+                  LAYOUT_KEY,
+                  HIDDEN_KEY,
+                  ACCOUNT_KEY,
+                  LIVE_DOORS_CACHE_KEY,
+                ],
+          ),
+        ]);
+        const storedZones = local[ZONE_KEY] ?? null;
+        const storedLayout = local[LAYOUT_KEY] ?? null;
+        const storedHidden = local[HIDDEN_KEY] ?? null;
+        const storedAccount = demo
+          ? mockAccount
+          : parseAccount(local[ACCOUNT_KEY] ?? null);
+        const cached = demo
+          ? null
+          : parseLiveDoorsCache(local[LIVE_DOORS_CACHE_KEY] ?? null);
+        if (!demo) {
+          captureStartupTiming('local_hydration', storageStartedAt);
+        }
         if (seq !== bootSeq.current) {
           return;
         }
@@ -313,6 +419,15 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
           return;
         }
         setTokens(parsed);
+        if (cached !== null) {
+          liveDoors.current = cached.doors;
+          setDoors(cached.doors);
+          setBuildingName(cached.buildingName);
+          setMode('signed_in');
+          captureStartupTiming('cached_home_ready', startupStartedAt, {
+            door_count: cached.doors.length,
+          });
+        }
         try {
           await withTimeout(
             loadLiveDoors(parsed),
@@ -327,13 +442,15 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
           if (seq !== bootSeq.current) {
             return;
           }
-          bootSeq.current += 1;
-          setMode('signed_in');
-          setBootError(
-            error instanceof Error
-              ? error.message
-              : 'Could not load your building.',
-          );
+          if (cached === null) {
+            bootSeq.current += 1;
+            setMode('signed_in');
+            setBootError(
+              error instanceof Error
+                ? error.message
+                : 'Could not load your building.',
+            );
+          }
         }
       } catch (error) {
         if (seq !== bootSeq.current) {
@@ -479,8 +596,12 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
     capture('signed_out');
     resetAnalytics();
     await persistTokens(null);
-    await persistAccount(null);
+    await Promise.all([
+      persistAccount(null),
+      storageRemove(LIVE_DOORS_CACHE_KEY),
+    ]);
     setAccount(null);
+    liveDoors.current = [];
     setDoors([]);
     setBuildingName('');
     setGuestInvite(null);
@@ -802,6 +923,32 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
     [demo, guestSecret, persistTokens, tokens],
   );
 
+  const updateKey = useCallback(
+    async (keyId: string, input: {
+      ttl?: KeyTtl;
+      label: string;
+      note: string;
+      inviterName: string;
+      contact: string;
+    }) => {
+      if (demo) {
+        if (guestSecret !== null) throw new Error('Return to the demo to update an invite.');
+        return demoStore.update(keyId, input);
+      }
+      if (tokens === null) {
+        throw new Error('Sign in to update an invite.');
+      }
+      const fresh = await ensureFreshTokens(tokens);
+      if (fresh.accessToken !== tokens.accessToken) {
+        await persistTokens(fresh);
+      }
+      const updated = await updateKeyRequest(fresh.accessToken, keyId, input);
+      capture('key_updated', { expiry_changed: input.ttl !== undefined });
+      return updated;
+    },
+    [demo, guestSecret, persistTokens, tokens],
+  );
+
   const value = useMemo<SessionContextValue>(
     () => {
       const liveDoors = Array.isArray(doors) ? doors : unpackLiveBuilding(doors).doors;
@@ -837,6 +984,7 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
         guestInvite,
         createKey,
         listKeys,
+        updateKey,
         revokeKey,
       };
     },
@@ -852,6 +1000,7 @@ function SessionState({ children, demo, startDemo, exitDemo }: {
       guestExpiresAt,
       guestInvite,
       listKeys,
+      updateKey,
       revokeKey,
       mode,
       openSignIn,
@@ -901,6 +1050,80 @@ function unpackLiveBuilding(result: unknown): {
     doors: Array.isArray(record.doors) ? record.doors : [],
     account: parseAccountProfile(record.account),
   };
+}
+
+type LiveDoorsCache = {
+  doors: Door[];
+  account: AccountProfile | null;
+  buildingName: string;
+};
+
+async function persistLiveDoorsCache(snapshot: LiveDoorsCache): Promise<void> {
+  await storageSet(LIVE_DOORS_CACHE_KEY, JSON.stringify(snapshot));
+}
+
+function parseLiveDoorsCache(raw: string | null): LiveDoorsCache | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<LiveDoorsCache>;
+    if (!Array.isArray(parsed.doors) || typeof parsed.buildingName !== 'string') {
+      return null;
+    }
+    return {
+      doors: (parsed.doors as Door[]).map((door) => ({
+        ...door,
+        disabled:
+          (door.sourceDisabled ?? door.disabled) === true ||
+          (door.lockout === true && door.schedulePending === true) ||
+          (door.lockout === true &&
+            door.hours.length > 0 &&
+            !isWithinHours(door.hours, Date.now(), door.timeZone)),
+      })),
+      account: parseAccountProfile(parsed.account),
+      buildingName: parsed.buildingName,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function mergeScheduleEnrichment(
+  current: Door[],
+  scheduled: Door[],
+): Door[] {
+  const byId = new Map(scheduled.map((door) => [door.id, door]));
+  return current.map((door) => {
+    const update = byId.get(door.id);
+    if (update === undefined) return door;
+    return {
+      ...door,
+      hours: update.hours,
+      disabled: update.disabled,
+      sourceDisabled: update.sourceDisabled,
+      lockout: update.lockout,
+      schedulePending: update.schedulePending,
+    };
+  });
+}
+
+function mergeNearbyEnrichment(current: Door[], nearby: Door[]): Door[] {
+  const byId = new Map(nearby.map((door) => [door.id, door]));
+  return current.map((door) => ({
+    ...door,
+    nearbyIdentifiers: byId.get(door.id)?.nearbyIdentifiers ?? [],
+  }));
+}
+
+function captureStartupTiming(
+  phase: string,
+  startedAt: number,
+  properties: Record<string, number> = {},
+) {
+  capture('startup_timing', {
+    phase,
+    duration_ms: Math.max(0, Date.now() - startedAt),
+    ...properties,
+  });
 }
 
 function parseAccountProfile(value: unknown): AccountProfile | null {

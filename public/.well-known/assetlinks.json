@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.fldr.latch",
+      "sha256_cert_fingerprints": [
+        "94:4B:5C:07:11:5F:BD:9C:7C:AA:1F:C6:D9:3D:9A:39:CF:BB:D7:BB:94:60:AE:88:42:BD:BC:B5:A2:24:DB:2F"
+      ]
+    }
+  }
+]

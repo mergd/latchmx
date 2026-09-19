@@ -19,6 +19,9 @@ export const hi: Messages = {
     loading: 'लोड हो रहा है',
     tryAgain: 'फिर से कोशिश करें',
     contact: 'संपर्क',
+    enable: 'चालू करें',
+    edit: 'बदलें',
+    save: 'सहेजें',
   },
   app: {
     snag: '%{name} में दिक्कत हुई',
@@ -27,6 +30,7 @@ export const hi: Messages = {
   auth: {
     signIn: 'साइन इन',
     signingIn: 'साइन इन हो रहा है',
+    loggedIn: 'आप साइन इन हैं',
     tryDemo: 'डेमो आज़माएँ',
     signOut: 'साइन आउट',
     signOutTitle: 'साइन आउट करें?',
@@ -52,6 +56,9 @@ export const hi: Messages = {
   },
   home: {
     signInTitle: 'साइन इन',
+    welcomeTitle: '%{name} में आपका स्वागत है',
+    welcomeBody:
+      'आपके भवन के दरवाज़े तैयार हैं। खोलने के लिए किसी दरवाज़े पर टैप करें, Bluetooth सुझावों के लिए Nearby का उपयोग करें, और Keys में अस्थायी अतिथि कुंजियाँ बनाएँ।',
     dragSections: 'क्रम बदलने के लिए सेक्शन खींचें',
     noDoors: 'अभी कोई दरवाज़ा नहीं',
     noDoorsBody: '%{name} को इस खाते पर खुलने वाला दरवाज़ा नहीं मिला।',
@@ -138,6 +145,7 @@ export const hi: Messages = {
       'डेमो निमंत्रण सिर्फ़ इसी डिवाइस पर चलते हैं। अतिथि अनुभव के लिए प्रीव्यू इस्तेमाल करें।',
     preview: 'प्रीव्यू',
     previewInvite: '%{label} का प्रीव्यू',
+    editInvite: '%{label} बदलें',
     revoke: 'रद्द करें',
     revokeTitle: 'यह निमंत्रण रद्द करें?',
     revokeDemo: 'यह डेमो निमंत्रण इस डिवाइस पर काम करना बंद कर देगा।',
@@ -165,6 +173,7 @@ export const hi: Messages = {
   },
   invite: {
     title: 'आमंत्रित करें',
+    editTitle: 'निमंत्रण बदलें',
     forLabel: 'किसके लिए, या किस काम के लिए?',
     forPlaceholder: 'आज शाम पार्टी या अनन्या शर्मा',
     noteLabel: 'उन्हें कुछ जानना चाहिए? (वैकल्पिक)',
@@ -174,6 +183,7 @@ export const hi: Messages = {
     howLong: 'कितनी देर',
     howLongValue: 'कितनी देर, %{label}',
     inviting: 'निमंत्रण भेजा जा रहा है…',
+    saving: 'सहेजा जा रहा है…',
     hour1: '1 घंटा',
     hour1Hint: 'जो रास्ते में हैं उनके लिए',
     tonight: 'आज रात',
@@ -239,6 +249,7 @@ export const hi: Messages = {
     loadKeys: 'चाबियाँ लोड नहीं हो सकीं।',
     copyLink: 'वह लिंक कॉपी नहीं हो सका।',
     revokeKey: 'वह चाबी रद्द नहीं हो सकी।',
+    updateKey: 'वह निमंत्रण अपडेट नहीं हो सका।',
     shareLink: 'वह लिंक शेयर नहीं हो सका।',
     sessionExpired: 'सेशन खत्म हो गया। फिर साइन इन करें।',
     loadDoors: 'दरवाज़े लोड नहीं हो सके।',

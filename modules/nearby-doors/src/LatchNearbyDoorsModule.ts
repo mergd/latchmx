@@ -1,4 +1,7 @@
-import type { NearbyPeripheral } from './LatchNearbyDoors.types';
+import type {
+  NearbyDoorsEvents,
+  NearbyPeripheral,
+} from './LatchNearbyDoors.types';
 
 export default {
   async scanAsync(
@@ -7,5 +10,12 @@ export default {
   ): Promise<NearbyPeripheral[]> {
     return [];
   },
+  async startContinuousAsync(_includeUnnamed: boolean): Promise<void> {},
   async stopAsync(): Promise<void> {},
+  addListener<EventName extends keyof NearbyDoorsEvents>(
+    _eventName: EventName,
+    _listener: NearbyDoorsEvents[EventName],
+  ) {
+    return { remove() {} };
+  },
 };

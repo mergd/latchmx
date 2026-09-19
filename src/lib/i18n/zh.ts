@@ -19,6 +19,9 @@ export const zh: Messages = {
     loading: '加载中',
     tryAgain: '再试一次',
     contact: '联系',
+    enable: '启用',
+    edit: '编辑',
+    save: '保存',
   },
   app: {
     snag: '%{name} 出了点问题',
@@ -27,6 +30,7 @@ export const zh: Messages = {
   auth: {
     signIn: '登录',
     signingIn: '正在登录',
+    loggedIn: '已登录',
     tryDemo: '试用演示',
     signOut: '退出登录',
     signOutTitle: '退出登录？',
@@ -52,6 +56,9 @@ export const zh: Messages = {
   },
   home: {
     signInTitle: '登录',
+    welcomeTitle: '欢迎使用 %{name}',
+    welcomeBody:
+      '你的楼宇门禁已准备就绪。轻点门即可开门，使用“附近”获取蓝牙建议，并在“钥匙”中创建临时访客钥匙。',
     dragSections: '拖动分区即可重排',
     noDoors: '还没有门',
     noDoorsBody: '%{name} 在这个账户上找不到可开的门。',
@@ -135,6 +142,7 @@ export const zh: Messages = {
     demoHint: '演示邀请只在这台设备上有效。用预览体验访客流程。',
     preview: '预览',
     previewInvite: '预览 %{label}',
+    editInvite: '编辑 %{label}',
     revoke: '撤销',
     revokeTitle: '撤销这个邀请？',
     revokeDemo: '这个演示邀请将在这台设备上失效。',
@@ -160,6 +168,7 @@ export const zh: Messages = {
   },
   invite: {
     title: '邀请',
+    editTitle: '编辑邀请',
     forLabel: '给谁，或做什么用？',
     forPlaceholder: '今晚聚会，或李明',
     noteLabel: '他们需要知道什么？（可选）',
@@ -169,6 +178,7 @@ export const zh: Messages = {
     howLong: '有效时长',
     howLongValue: '有效时长，%{label}',
     inviting: '正在邀请…',
+    saving: '正在保存…',
     hour1: '1 小时',
     hour1Hint: '给正在路上的人',
     tonight: '今晚',
@@ -232,6 +242,7 @@ export const zh: Messages = {
     loadKeys: '无法加载钥匙。',
     copyLink: '无法复制该链接。',
     revokeKey: '无法撤销这把钥匙。',
+    updateKey: '无法更新此邀请。',
     shareLink: '无法分享该链接。',
     sessionExpired: '会话已过期。请重新登录。',
     loadDoors: '无法加载门。',

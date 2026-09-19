@@ -41,9 +41,18 @@ test('create, list, recopy, guest preview and revoke retain invite details', asy
   expect(created.url).toBe('latch:///k/demo.1');
   expect(created.expiresAt - created.createdAt).toBe(3_600_000);
   expect((await store.list())[0]?.url).toBe(created.url);
+  const updated = await store.update(created.id, {
+    label: 'Dinner delivery',
+    note: 'Use the north entrance.',
+    inviterName: input.inviterName,
+    contact: input.contact,
+  });
+  expect(updated.url).toBe(created.url);
+  expect(updated.expiresAt).toBe(created.expiresAt);
+  expect(updated.label).toBe('Dinner delivery');
   const guest = await store.guest(created.id);
   expect(guest.doors).toHaveLength(6);
-  expect(guest.invite).toEqual({ label: input.label, note: input.note, inviterName: input.inviterName, contact: input.contact });
+  expect(guest.invite).toEqual({ label: 'Dinner delivery', note: 'Use the north entrance.', inviterName: input.inviterName, contact: input.contact });
   await store.unlock(mockDoors[0], created.id);
   const reloaded = createDemoStore(storage, () => 'new', () => 'latch://');
   expect((await reloaded.list())[0]?.url).toBe(created.url);

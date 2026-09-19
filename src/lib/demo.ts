@@ -90,6 +90,24 @@ export function createDemoStore(storage: DemoStorage, uuid: () => string, origin
       await writes;
       return (await read()).filter(key => !key.revoked);
     },
+    async update(id: string, input: {
+      ttl?: KeyTtl; label: string; note: string; inviterName: string; contact: string;
+    }): Promise<CreatedKey> {
+      return update(keys => {
+        const key = keys.find(item => item.id === id);
+        if (!key || key.revoked || key.expiresAt <= Date.now()) {
+          throw new Error('That key is gone.');
+        }
+        if (input.ttl !== undefined) {
+          key.expiresAt = expiresAtForTtl(input.ttl, Date.now());
+        }
+        key.label = input.label.trim() || 'Guest invite';
+        key.note = input.note.trim() || null;
+        key.inviterName = input.inviterName.trim() || null;
+        key.contact = input.contact.trim() || null;
+        return key;
+      });
+    },
     async revoke(id: string): Promise<void> {
       await update(keys => {
         const key = keys.find(item => item.id === id);

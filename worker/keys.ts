@@ -46,12 +46,54 @@ export async function handleKeysRequest(
   }
 
   const match = /^\/api\/keys\/([^/]+)$/.exec(path);
+  if (match?.[1] !== undefined && request.method === 'PATCH') {
+    return json(await editKey(request, env, bearer(request), match[1]), 200, headers);
+  }
   if (match?.[1] !== undefined && request.method === 'DELETE') {
     await revokeKey(env, bearer(request), match[1]);
     return json({ ok: true }, 200, headers);
   }
 
   throw new HttpError(404, 'Not found.');
+}
+
+async function editKey(
+  request: Request,
+  env: Env,
+  accessToken: string,
+  keyId: string,
+): Promise<IssuedKey> {
+  const ownerIdValue = await ownerId(env, accessToken);
+  const record = await getKey(env, keyId);
+  if (
+    record === null ||
+    record.ownerId !== ownerIdValue ||
+    record.revoked ||
+    record.expiresAt <= Date.now()
+  ) {
+    throw new HttpError(404, 'That key is gone.');
+  }
+  const body = asRecord(await request.json().catch(() => null));
+  if (body === null) {
+    throw new HttpError(400, 'Invalid invite changes.');
+  }
+  const next: KeyRecord = {
+    ...record,
+    expiresAt:
+      body.ttl === undefined
+        ? record.expiresAt
+        : expiresAtForTtl(parseTtl(body.ttl), Date.now()),
+    label: body.label === undefined ? record.label : parseText(body.label, 60) ?? 'Guest invite',
+    note: body.note === undefined ? record.note : parseText(body.note, 240),
+    inviterName:
+      body.inviterName === undefined
+        ? record.inviterName
+        : parseText(body.inviterName, 80),
+    contact:
+      body.contact === undefined ? record.contact : parseText(body.contact, 80),
+  };
+  await updateKey(env, next);
+  return toIssued(next, await urlForRecord(env, next));
 }
 
 export async function handleGuestRequest(

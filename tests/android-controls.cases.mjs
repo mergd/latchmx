@@ -52,6 +52,7 @@ mock.module("react-native-reanimated", () => ({
 }));
 mock.module("phosphor-react-native", () => ({
   CaretDownIcon: "Caret",
+  CheckCircleIcon: "CheckCircle",
   LockSimpleOpenIcon: "Lock",
   XIcon: "X",
 }));
@@ -68,6 +69,7 @@ mock.module("../src/lib/haptics", () => ({
   hapticSuccess: () => {},
   hapticError: () => {},
 }));
+mock.module("../src/lib/analytics", () => ({ capture: () => {} }));
 mock.module("../src/lib/bmx-api", () => ({
   authorizationCodeFromUrl: () => null,
 }));
@@ -126,6 +128,7 @@ mock.module("../src/lib/i18n/context", () => ({
 const { InviteDialog } = await import("../src/components/invite-dialog");
 const { DoorRow } = await import("../src/components/door-button");
 const { AuthLoginDrawer } = await import("../src/components/auth-login-drawer");
+const { NearbyDoorSuggestion } = await import("../src/components/nearby-door-suggestion");
 const { HomeSkeleton } = await import("../src/components/skeleton");
 const { color } = await import("../src/lib/theme");
 
@@ -319,7 +322,7 @@ test("web keeps the duration choices inside the scrollable card", () => {
 });
 
 test("keyboard layout bounds the card and scrolls fields without moving actions", () => {
-  stateOverrides = { 6: 300 };
+  stateOverrides = { 7: 300 };
   const root = dialog();
   const backdrop = root.props.children;
   expect(backdrop.props.style.at(-1)).toEqual({
@@ -344,10 +347,10 @@ test("keyboard layout bounds the card and scrolls fields without moving actions"
 
 test("iOS keeps the menu anchor still when UIKit dismisses the keyboard", () => {
   platform.OS = "ios";
-  stateOverrides = { 5: true, 6: 0, 7: 300 };
+  stateOverrides = { 6: true, 7: 0, 8: 300 };
   expect(dialog().props.children.props.style.at(-1).paddingBottom).toBe(312);
   stateIndex = 0;
-  stateOverrides = { 5: false, 6: 0, 7: 300 };
+  stateOverrides = { 6: false, 7: 0, 8: 300 };
   expect(dialog().props.children.props.style.at(-1).paddingBottom).toBe(28);
 });
 
@@ -376,7 +379,7 @@ test("swipe action uses gesture-aware touch handling and passes the exact door",
   expect(onHide).toHaveBeenCalledWith(door);
 });
 
-test("auth scrim, loading overlay, and skeleton fill their parent bounds", () => {
+test("auth only covers ButterflyMX after a code has been captured", () => {
   const auth = AuthLoginDrawer({
     visible: true,
     url: "https://example.test",
@@ -385,10 +388,37 @@ test("auth scrim, loading overlay, and skeleton fill their parent bounds", () =>
   });
   const scrim = auth.props.children.props.children[0];
   expect(scrim.props.style).toMatchObject(absoluteFill);
-  const loading = nodes(auth).find(
+  expect(nodes(auth).find(
+    (node) => node.props.pointerEvents === "none",
+  )).toBeUndefined();
+  const busyAuth = AuthLoginDrawer({
+    visible: true,
+    busy: true,
+    url: "https://example.test",
+    onClose() {},
+    onCapturedCode() {},
+  });
+  const loading = nodes(busyAuth).find(
     (node) => node.props.pointerEvents === "none",
   );
   expect(loading.props.style).toMatchObject(absoluteFill);
+});
+
+test("nearby Bluetooth prompt has a distinct Enable button", () => {
+  const prompt = NearbyDoorSuggestion({
+    available: true,
+    enabled: false,
+    matches: [],
+    openUntilByDoorId: {},
+    onEnable: async () => {},
+    onUnlock: async () => {},
+  });
+  expect(nodes(prompt).some(
+    (node) => node.type === "Text" && node.props.children === "common.enable",
+  )).toBe(true);
+});
+
+test("skeleton fills its hero bounds", () => {
   const heroFill = HomeSkeleton().props.children[0].props.children[0];
   expect(heroFill.props.style).toMatchObject(absoluteFill);
 });

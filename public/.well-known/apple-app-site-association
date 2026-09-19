@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["9325ZRF44L.dev.william.latch"],
+        "components": [
+          {
+            "/": "/k/*",
+            "comment": "Open LatchMX guest invitations in the installed app."
+          }
+        ]
+      }
+    ]
+  }
+}

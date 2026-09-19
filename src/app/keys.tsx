@@ -22,11 +22,12 @@ import type { CreatedKey, IssuedKey, KeyTtl } from '@/lib/types';
 
 export default function KeysScreen() {
   const { t } = useI18n();
-  const { mode, account, isDemo, buildingName, createKey, listKeys, revokeKey } = useSession();
+  const { mode, account, isDemo, buildingName, createKey, listKeys, updateKey, revokeKey } = useSession();
   const [keys, setKeys] = useState<IssuedKey[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
+  const [editing, setEditing] = useState<IssuedKey | null>(null);
   const [created, setCreated] = useState<CreatedKey | null>(null);
   const [copied, setCopied] = useState(false);
   const [pendingRevoke, setPendingRevoke] = useState<IssuedKey | null>(null);
@@ -90,6 +91,36 @@ export default function KeysScreen() {
       setCopied(result === 'copied');
     } catch (caught) {
       setError(errorText(caught, 'errors.createKey'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onUpdate = async (input: {
+    ttl: KeyTtl;
+    label: string;
+    note: string;
+    inviterName: string;
+    contact: string;
+    expiryChanged: boolean;
+  }) => {
+    if (editing === null) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await updateKey(editing.id, {
+        ttl: input.expiryChanged ? input.ttl : undefined,
+        label: input.label,
+        note: input.note,
+        inviterName: input.inviterName,
+        contact: input.contact,
+      });
+      await refresh();
+      setEditing(null);
+    } catch (caught) {
+      setError(errorText(caught, 'errors.updateKey'));
     } finally {
       setBusy(false);
     }
@@ -208,6 +239,10 @@ export default function KeysScreen() {
                 onCopy={() => {
                   void onCopy(key);
                 }}
+                onEdit={() => {
+                  setError(null);
+                  setEditing(key);
+                }}
                 onPreview={() => {
                   router.push(demoKeyPath(key.id));
                 }}
@@ -269,6 +304,7 @@ export default function KeysScreen() {
 
       {composing ? (
         <InviteDialog
+          key="create"
           visible
           busy={busy}
           error={error}
@@ -282,6 +318,33 @@ export default function KeysScreen() {
           }}
           onCreate={(input) => {
             void onCreate(input);
+          }}
+        />
+      ) : null}
+      {editing !== null ? (
+        <InviteDialog
+          key={editing.id}
+          visible
+          editing
+          busy={busy}
+          error={error}
+          defaultName={account?.name?.trim() ?? ''}
+          defaultContact={account?.email?.trim() ?? ''}
+          initialValues={{
+            ttl: ttlForRemaining(editing.expiresAt, now),
+            label: editing.label,
+            note: editing.note ?? '',
+            inviterName: editing.inviterName ?? '',
+            contact: editing.contact ?? '',
+          }}
+          onClose={() => {
+            if (!busy) {
+              setEditing(null);
+              setError(null);
+            }
+          }}
+          onCreate={(input) => {
+            void onUpdate(input);
           }}
         />
       ) : null}
@@ -359,6 +422,7 @@ function InviteRow({
   isDemo,
   copied,
   onCopy,
+  onEdit,
   onPreview,
   onRevoke,
 }: {
@@ -368,6 +432,7 @@ function InviteRow({
   isDemo: boolean;
   copied: boolean;
   onCopy?: () => void;
+  onEdit?: () => void;
   onPreview?: () => void;
   onRevoke: () => void;
 }) {
@@ -385,6 +450,19 @@ function InviteRow({
         </Text>
       </View>
       <View style={styles.rowActions}>
+        {!expired && onEdit !== undefined ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('keys.editInvite', { label: invite.label })}
+            onPress={onEdit}
+            style={({ pressed }) => [
+              styles.rowAction,
+              pressed ? styles.invitePressed : null,
+            ]}
+          >
+            <Text style={styles.copyLabel}>{t('common.edit')}</Text>
+          </Pressable>
+        ) : null}
         {!expired && isDemo && onPreview !== undefined ? (
           <Pressable
             accessibilityRole="button"
@@ -449,6 +527,17 @@ function remainingLabel(expiresAt: number, now: number): string {
     return t('keys.expired');
   }
   return approxRemaining(left);
+}
+
+function ttlForRemaining(expiresAt: number, now: number): KeyTtl {
+  const remaining = expiresAt - (now === 0 ? Date.now() : now);
+  if (remaining <= 90 * 60_000) {
+    return '1h';
+  }
+  if (remaining <= 12 * 60 * 60_000) {
+    return 'tonight';
+  }
+  return '24h';
 }
 
 const styles = StyleSheet.create({

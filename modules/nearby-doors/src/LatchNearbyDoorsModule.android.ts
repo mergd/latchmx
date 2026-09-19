@@ -1,12 +1,16 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import type { NearbyPeripheral } from './LatchNearbyDoors.types';
+import type {
+  NearbyDoorsEvents,
+  NearbyPeripheral,
+} from './LatchNearbyDoors.types';
 
-declare class LatchNearbyDoorsModule extends NativeModule {
+declare class LatchNearbyDoorsModule extends NativeModule<NearbyDoorsEvents> {
   scanAsync(
     durationMilliseconds: number,
     includeUnnamed: boolean,
   ): Promise<NearbyPeripheral[]>;
+  startContinuousAsync(includeUnnamed: boolean): Promise<void>;
   stopAsync(): Promise<void>;
 }
 

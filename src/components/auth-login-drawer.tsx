@@ -1,5 +1,5 @@
 import { XIcon } from 'phosphor-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
@@ -32,7 +32,6 @@ export function AuthLoginDrawer({
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const captured = useRef<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const userAgent = Platform.OS === 'ios' ? safariMobileUa : chromeMobileUa;
   const source = useMemo(() => ({ uri: url }), [url]);
@@ -86,12 +85,6 @@ export function AuthLoginDrawer({
                 source={source}
                 userAgent={userAgent}
                 style={styles.web}
-                onLoadStart={() => {
-                  setLoading(true);
-                }}
-                onLoadEnd={() => {
-                  setLoading(false);
-                }}
                 onNavigationStateChange={onNav}
                 onShouldStartLoadWithRequest={(request) => considerUrl(request.url)}
                 sharedCookiesEnabled
@@ -101,7 +94,7 @@ export function AuthLoginDrawer({
                 setSupportMultipleWindows={false}
               />
             ) : null}
-            {loading || busy ? (
+            {busy ? (
               <View style={styles.loading} pointerEvents="none">
                 <FlapLoader size={48} />
               </View>

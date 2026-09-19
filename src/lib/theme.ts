@@ -45,6 +45,20 @@ export function doorInk(groupIndex: number, doorIndex: number): string {
   return hslToHex(hue, Math.max(base.s - 22, 32), 86);
 }
 
+export function nearbyDoorInk(door: {
+  buildingId: number;
+  kind: string;
+  remoteId: number;
+}): string {
+  const identity = `${door.buildingId}:${door.kind}:${door.remoteId}`;
+  let hash = 2166136261;
+  for (let index = 0; index < identity.length; index += 1) {
+    hash ^= identity.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return groupInks[(hash >>> 0) % groupInks.length] ?? groupInks[0];
+}
+
 function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
   const rgb = parseHex(hex);
   if (rgb === null) {

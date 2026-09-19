@@ -4,7 +4,7 @@ import { DoorRow } from '@/components/door-button';
 import { capture } from '@/lib/analytics';
 import { useI18n } from '@/lib/i18n/context';
 import type { NearbyDoorMatch } from '@/lib/nearby-ranking';
-import { color, type } from '@/lib/theme';
+import { color, nearbyDoorInk, type } from '@/lib/theme';
 import type { Door } from '@/lib/types';
 
 type NearbyDoorSuggestionProps = {
@@ -13,6 +13,7 @@ type NearbyDoorSuggestionProps = {
   matches: NearbyDoorMatch[];
   openUntilByDoorId: Record<string, number>;
   onEnable: () => Promise<void>;
+  onSelect: (door: Door) => Promise<void>;
   onUnlock: (door: Door) => Promise<void>;
 };
 
@@ -22,6 +23,7 @@ export function NearbyDoorSuggestion({
   matches,
   openUntilByDoorId,
   onEnable,
+  onSelect,
   onUnlock,
 }: NearbyDoorSuggestionProps) {
   const { t } = useI18n();
@@ -40,8 +42,13 @@ export function NearbyDoorSuggestion({
             pressed ? styles.pressed : null,
           ]}
         >
-          <Text style={styles.enableTitle}>{t('home.findNearby')}</Text>
-          <Text style={styles.enableBody}>{t('home.findNearbyBody')}</Text>
+          <View style={styles.enableCopy}>
+            <Text style={styles.enableTitle}>{t('home.findNearby')}</Text>
+            <Text style={styles.enableBody}>{t('home.findNearbyBody')}</Text>
+          </View>
+          <View style={styles.enableButton}>
+            <Text style={styles.enableButtonLabel}>{t('common.enable')}</Text>
+          </View>
         </Pressable>
       </View>
     );
@@ -63,6 +70,7 @@ export function NearbyDoorSuggestion({
             door={door}
             arranging={false}
             sortable={false}
+            ink={nearbyDoorInk(door)}
             last={index === matches.length - 1}
             openUntil={openUntilByDoorId[door.id] ?? null}
             onUnlock={async (selected) => {
@@ -72,6 +80,7 @@ export function NearbyDoorSuggestion({
                 samples,
                 candidate_count: matches.length,
               });
+              void onSelect(selected);
               await onUnlock(selected);
             }}
           />
@@ -88,10 +97,27 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   enable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: color.fill,
+  },
+  enableCopy: { flex: 1 },
+  enableButton: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: color.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enableButtonLabel: {
+    color: color.onAccent,
+    fontFamily: type.body,
+    fontSize: 14,
   },
   pressed: {
     opacity: 0.72,

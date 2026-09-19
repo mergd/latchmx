@@ -42,10 +42,11 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
   ios: {
-    buildNumber: '20',
+    buildNumber: '23',
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
+    associatedDomains: ['applinks:bmx.fldr.zip'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSBluetoothAlwaysUsageDescription:
@@ -54,7 +55,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'dev.fldr.latch',
-    versionCode: 4,
+    versionCode: 6,
     adaptiveIcon: {
       backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -62,12 +63,27 @@ const config: ExpoConfig = {
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          {
+            scheme: 'https',
+            host: 'bmx.fldr.zip',
+            pathPrefix: '/k/',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   web: {
     output: process.env.EXPO_WEB_OUTPUT === 'static' ? 'static' : 'server',
     favicon: './assets/images/favicon.png',
   },
   plugins: [
+    './plugins/with-ios-scene-lifecycle.cjs',
     'expo-router',
     'expo-font',
     'expo-image',

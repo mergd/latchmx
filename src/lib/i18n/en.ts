@@ -17,6 +17,9 @@ export const en = {
     loading: 'Loading',
     tryAgain: 'Try again',
     contact: 'Contact',
+    enable: 'Enable',
+    edit: 'Edit',
+    save: 'Save',
   },
   app: {
     snag: '%{name} hit a snag',
@@ -25,6 +28,7 @@ export const en = {
   auth: {
     signIn: 'Sign in',
     signingIn: 'Signing in',
+    loggedIn: 'You’re signed in',
     tryDemo: 'Try demo',
     signOut: 'Sign out',
     signOutTitle: 'Sign out?',
@@ -50,6 +54,9 @@ export const en = {
   },
   home: {
     signInTitle: 'Sign in',
+    welcomeTitle: 'Welcome to %{name}',
+    welcomeBody:
+      'Your building doors are ready. Tap a door to unlock it, use Nearby for Bluetooth suggestions, and create temporary guest keys from Keys.',
     dragSections: 'Drag sections to reorder',
     noDoors: 'No doors yet',
     noDoorsBody: '%{name} couldn’t find an unlockable door on this account.',
@@ -135,6 +142,7 @@ export const en = {
       'Demo invites work on this device only. Use Preview to try the guest experience.',
     preview: 'Preview',
     previewInvite: 'Preview %{label}',
+    editInvite: 'Edit %{label}',
     revoke: 'Revoke',
     revokeTitle: 'Revoke this invite?',
     revokeDemo: 'This demo invite will stop working on this device.',
@@ -161,6 +169,7 @@ export const en = {
   },
   invite: {
     title: 'Invite',
+    editTitle: 'Edit invite',
     forLabel: 'Who or what is it for?',
     forPlaceholder: 'Party later today or Jane Smith',
     noteLabel: 'Anything they should know? (optional)',
@@ -170,6 +179,7 @@ export const en = {
     howLong: 'How long',
     howLongValue: 'How long, %{label}',
     inviting: 'Inviting…',
+    saving: 'Saving…',
     hour1: '1 hour',
     hour1Hint: 'For someone on the way',
     tonight: 'Tonight',
@@ -235,6 +245,7 @@ export const en = {
     loadKeys: 'Could not load keys.',
     copyLink: 'Could not copy that link.',
     revokeKey: 'Could not revoke that key.',
+    updateKey: 'Could not update that invite.',
     shareLink: 'Could not share that link.',
     sessionExpired: 'Session expired. Sign in again.',
     loadDoors: 'Could not load doors.',

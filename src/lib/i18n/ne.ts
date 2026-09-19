@@ -19,6 +19,9 @@ export const ne: Messages = {
     loading: 'लोड हुँदैछ',
     tryAgain: 'फेरि प्रयास गर्नुहोस्',
     contact: 'सम्पर्क',
+    enable: 'सक्षम गर्नुहोस्',
+    edit: 'सम्पादन',
+    save: 'सुरक्षित गर्नुहोस्',
   },
   app: {
     snag: '%{name} मा समस्या आयो',
@@ -27,6 +30,7 @@ export const ne: Messages = {
   auth: {
     signIn: 'साइन इन',
     signingIn: 'साइन इन हुँदैछ',
+    loggedIn: 'तपाईं साइन इन हुनुभयो',
     tryDemo: 'डेमो चलाएर हेर्नुहोस्',
     signOut: 'साइन आउट',
     signOutTitle: 'साइन आउट गर्ने?',
@@ -52,6 +56,9 @@ export const ne: Messages = {
   },
   home: {
     signInTitle: 'साइन इन',
+    welcomeTitle: '%{name} मा स्वागत छ',
+    welcomeBody:
+      'तपाईंको भवनका ढोकाहरू तयार छन्। खोल्न ढोकामा ट्याप गर्नुहोस्, Bluetooth सुझावका लागि Nearby प्रयोग गर्नुहोस्, र Keys मा अस्थायी अतिथि साँचो बनाउनुहोस्।',
     dragSections: 'क्रम फेर्न सेक्सन तान्नुहोस्',
     noDoors: 'अहिले कुनै ढोका छैन',
     noDoorsBody: '%{name} ले यो खातामा खोल्न मिल्ने ढोका भेटेन।',
@@ -138,6 +145,7 @@ export const ne: Messages = {
       'डेमो निमन्त्रणा यही उपकरणमा मात्र चल्छन्। पाहुना अनुभव हेर्न पूर्वावलोकन प्रयोग गर्नुहोस्।',
     preview: 'पूर्वावलोकन',
     previewInvite: '%{label} को पूर्वावलोकन',
+    editInvite: '%{label} सम्पादन गर्नुहोस्',
     revoke: 'रद्द गर्नुहोस्',
     revokeTitle: 'यो निमन्त्रणा रद्द गर्ने?',
     revokeDemo: 'यो डेमो निमन्त्रणा यही उपकरणमा चल्न छाड्छ।',
@@ -164,6 +172,7 @@ export const ne: Messages = {
   },
   invite: {
     title: 'निमन्त्रणा',
+    editTitle: 'निमन्त्रणा सम्पादन',
     forLabel: 'कसका लागि, वा के का लागि?',
     forPlaceholder: 'आज साँझ पार्टी वा सीता शर्मा',
     noteLabel: 'उनीहरूले केही जान्नुपर्छ? (ऐच्छिक)',
@@ -173,6 +182,7 @@ export const ne: Messages = {
     howLong: 'कति समय',
     howLongValue: 'कति समय, %{label}',
     inviting: 'निमन्त्रणा पठाइँदैछ…',
+    saving: 'सुरक्षित गरिँदैछ…',
     hour1: '१ घण्टा',
     hour1Hint: 'बाटोमा भएका मान्छेका लागि',
     tonight: 'आज राति',
@@ -238,6 +248,7 @@ export const ne: Messages = {
     loadKeys: 'चाबी लोड हुन सकेनन्।',
     copyLink: 'त्यो लिंक कपी हुन सकेन।',
     revokeKey: 'त्यो चाबी रद्द हुन सकेन।',
+    updateKey: 'त्यो निमन्त्रणा अपडेट हुन सकेन।',
     shareLink: 'त्यो लिंक सेयर हुन सकेन।',
     sessionExpired: 'सेसन सकियो। फेरि साइन इन गर्नुहोस्।',
     loadDoors: 'ढोका लोड हुन सकेनन्।',

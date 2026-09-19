@@ -20,13 +20,16 @@ import { DeadKey } from '@/components/dead-key';
 import { DoorList } from '@/components/door-list';
 import { GuestBanner } from '@/components/guest-banner';
 import { GuestWelcome } from '@/components/guest-welcome';
-import { NearbyDoorSuggestion } from '@/components/nearby-door-suggestion';
 import { IconButton } from '@/components/icon-button';
+import { LoginToast } from '@/components/login-toast';
+import { NearbyDoorSuggestion } from '@/components/nearby-door-suggestion';
 import { PageTitle } from '@/components/page-title';
+import { ResidentWelcome } from '@/components/resident-welcome';
 import { HomeSkeleton } from '@/components/skeleton';
 import { SignInForm } from '@/components/sign-in-form';
 import { StickyBuildingHeader } from '@/components/sticky-building-header';
 import { HIDDEN_GROUP_ID, fallbackBuilding } from '@/config/buildings';
+import { capture } from '@/lib/analytics';
 import { approxRemaining } from '@/lib/expiry';
 import { displayBuildingName, localizeError, t } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/context';
@@ -45,6 +48,19 @@ export default function BuildingScreen() {
   const { t } = useI18n();
   const { mode, bootError, guestExpiresAt } = useSession();
   const [now, setNow] = useState(0);
+  const previousMode = useRef(mode);
+  const [showLoginToast, setShowLoginToast] = useState(false);
+  const [introduceResident, setIntroduceResident] = useState(false);
+
+  useEffect(() => {
+    const previous = previousMode.current;
+    previousMode.current = mode;
+    if (previous !== 'signed_out' || mode !== 'signed_in') return;
+    setShowLoginToast(true);
+    setIntroduceResident(true);
+    const timer = setTimeout(() => setShowLoginToast(false), 2200);
+    return () => clearTimeout(timer);
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== 'guest' || guestExpiresAt === null) {
@@ -96,10 +112,21 @@ export default function BuildingScreen() {
     return <DeadKey detail={bootError} />;
   }
 
-  return <SignedInHome />;
+  return (
+    <SignedInHome
+      introduceResident={introduceResident}
+      showLoginToast={showLoginToast}
+    />
+  );
 }
 
-function SignedInHome() {
+function SignedInHome({
+  introduceResident,
+  showLoginToast,
+}: {
+  introduceResident: boolean;
+  showLoginToast: boolean;
+}) {
   const { t } = useI18n();
   const { top: topInset } = useSafeAreaInsets();
   const {
@@ -143,6 +170,7 @@ function SignedInHome() {
   const sectionYRef = useRef<Record<string, number>>({});
   const sectionRef = useRef('');
   const pinnedRef = useRef(false);
+  const firstRenderCaptured = useRef(false);
   const groups = useMemo(
     () => groupDoors(doors, zoneByDoorId, arrangement, hiddenByDoorId),
     [arrangement, doors, hiddenByDoorId, zoneByDoorId],
@@ -158,6 +186,11 @@ function SignedInHome() {
     arrangement,
     hiddenByDoorId,
   );
+  useEffect(() => {
+    if (firstRenderCaptured.current) return;
+    firstRenderCaptured.current = true;
+    capture('startup_home_rendered', { door_count: doors.length });
+  }, [doors.length]);
   useEffect(() => {
     if (!guest || guestExpiresAt === null) {
       return;
@@ -306,6 +339,7 @@ function SignedInHome() {
                 {...nearby}
                 openUntilByDoorId={openUntilByDoorId}
                 onEnable={nearby.enable}
+                onSelect={nearby.recordSelection}
                 onUnlock={unlock}
               />
               <View
@@ -379,6 +413,8 @@ function SignedInHome() {
                 mapsQuery={layout.mapsQuery ?? null}
               />
             ) : null}
+            {!guest && introduceResident ? <ResidentWelcome /> : null}
+            <LoginToast visible={!guest && showLoginToast} />
             <ConfirmDialog
               visible={pendingReset}
               title={t('home.resetLayoutTitle')}

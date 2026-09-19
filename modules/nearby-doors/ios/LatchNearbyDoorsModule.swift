@@ -7,6 +7,7 @@ private struct Observation {
   var name: String
   var readings: [Int]
   var advertisement: [String: Any]
+  var lastSeen: TimeInterval
 
   var medianRSSI: Int {
     let sorted = readings.sorted()
@@ -32,9 +33,15 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
   private var includeUnnamed = false
   private var observations: [UUID: Observation] = [:]
   private var scanGeneration = 0
+  private var continuous = false
+  private var continuousStartPromise: Promise?
+  private var lastUpdateAt: TimeInterval = 0
+  private var updateWorkItem: DispatchWorkItem?
+  private var expiryWorkItem: DispatchWorkItem?
+  var onUpdate: (([[String: Any]]) -> Void)?
 
   func scan(durationMilliseconds: Double, includeUnnamed: Bool, promise: Promise) {
-    guard scanPromise == nil else {
+    guard scanPromise == nil, !continuous else {
       promise.reject("ERR_NEARBY_SCAN_ACTIVE", "A nearby-door scan is already active.")
       return
     }
@@ -49,8 +56,28 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
     }
   }
 
+  func startContinuous(includeUnnamed: Bool, promise: Promise) {
+    guard scanPromise == nil, !continuous else {
+      promise.reject("ERR_NEARBY_SCAN_ACTIVE", "A nearby-door scan is already active.")
+      return
+    }
+    continuous = true
+    continuousStartPromise = promise
+    self.includeUnnamed = includeUnnamed
+    observations = [:]
+    if central == nil {
+      central = CBCentralManager(delegate: self, queue: .main)
+    } else {
+      startIfReady()
+    }
+  }
+
   func stop() {
-    finishScan()
+    if continuous {
+      stopContinuous()
+    } else {
+      finishScan()
+    }
   }
 
   func cancel() {
@@ -58,9 +85,16 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
     scanGeneration += 1
     scanPromise?.reject("ERR_NEARBY_SCAN_CANCELLED", "Nearby-door scanning stopped.")
     scanPromise = nil
+    continuousStartPromise?.reject("ERR_NEARBY_SCAN_CANCELLED", "Nearby-door scanning stopped.")
+    continuousStartPromise = nil
+    continuous = false
     pendingDuration = nil
     includeUnnamed = false
     observations = [:]
+    updateWorkItem?.cancel()
+    updateWorkItem = nil
+    expiryWorkItem?.cancel()
+    expiryWorkItem = nil
   }
 
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -85,6 +119,7 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
       peripheralName: peripheralName
     )
     let identifier = peripheral.identifier
+    let now = Date.timeIntervalSinceReferenceDate
     if var existing = observations[identifier] {
       if !name.isEmpty {
         existing.name = name
@@ -93,21 +128,28 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
       if existing.readings.count < 25 {
         existing.readings.append(value)
       }
+      existing.lastSeen = now
       observations[identifier] = existing
     } else {
       observations[identifier] = Observation(
         id: identifier.uuidString,
         name: name,
         readings: [value],
-        advertisement: advertisement
+        advertisement: advertisement,
+        lastSeen: now
       )
+    }
+    if continuous {
+      scheduleUpdate(immediate: observations[identifier]?.readings.count == 1)
+      scheduleExpiryUpdate()
     }
   }
 
   private func startIfReady() {
-    guard let central, let duration = pendingDuration, scanPromise != nil else { return }
+    guard let central, (continuous || (pendingDuration != nil && scanPromise != nil)) else { return }
     switch central.state {
     case .poweredOn:
+      let duration = pendingDuration
       pendingDuration = nil
       scanGeneration += 1
       let generation = scanGeneration
@@ -115,9 +157,14 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
         withServices: nil,
         options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
       )
-      DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
-        guard self?.scanGeneration == generation else { return }
-        self?.finishScan()
+      if continuous {
+        continuousStartPromise?.resolve(nil)
+        continuousStartPromise = nil
+      } else if let duration {
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+          guard self?.scanGeneration == generation else { return }
+          self?.finishScan()
+        }
       }
     case .poweredOff:
       rejectScan(code: "ERR_BLUETOOTH_OFF", message: "Turn on Bluetooth to find nearby doors.")
@@ -146,6 +193,57 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
     promise.resolve(records)
   }
 
+  private func stopContinuous() {
+    central?.stopScan()
+    scanGeneration += 1
+    continuous = false
+    continuousStartPromise?.resolve(nil)
+    continuousStartPromise = nil
+    includeUnnamed = false
+    observations = [:]
+    updateWorkItem?.cancel()
+    updateWorkItem = nil
+    expiryWorkItem?.cancel()
+    expiryWorkItem = nil
+    lastUpdateAt = 0
+  }
+
+  private func scheduleUpdate(immediate: Bool) {
+    let now = Date.timeIntervalSinceReferenceDate
+    let delay = immediate ? 0 : max(0, 0.25 - (now - lastUpdateAt))
+    if delay == 0 {
+      emitUpdate()
+      return
+    }
+    guard updateWorkItem == nil else { return }
+    let work = DispatchWorkItem { [weak self] in
+      self?.updateWorkItem = nil
+      self?.emitUpdate()
+    }
+    updateWorkItem = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+  }
+
+  private func emitUpdate() {
+    guard continuous else { return }
+    let now = Date.timeIntervalSinceReferenceDate
+    observations = observations.filter { now - $0.value.lastSeen <= 4.5 }
+    lastUpdateAt = now
+    onUpdate?(observations.values
+      .sorted { $0.medianRSSI > $1.medianRSSI }
+      .map(\.record))
+  }
+
+  private func scheduleExpiryUpdate() {
+    expiryWorkItem?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      self?.expiryWorkItem = nil
+      self?.emitUpdate()
+    }
+    expiryWorkItem = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 4.6, execute: work)
+  }
+
   private func rejectScan(code: String, message: String) {
     central?.stopScan()
     scanGeneration += 1
@@ -154,14 +252,29 @@ private final class NearbyScanner: NSObject, CBCentralManagerDelegate {
     observations = [:]
     scanPromise?.reject(code, message)
     scanPromise = nil
+    continuousStartPromise?.reject(code, message)
+    continuousStartPromise = nil
+    continuous = false
+    updateWorkItem?.cancel()
+    updateWorkItem = nil
+    expiryWorkItem?.cancel()
+    expiryWorkItem = nil
   }
 }
 
 public final class LatchNearbyDoorsModule: Module {
-  private let scanner = NearbyScanner()
+  private lazy var scanner: NearbyScanner = {
+    let scanner = NearbyScanner()
+    scanner.onUpdate = { [weak self] peripherals in
+      self?.sendEvent("onNearbyPeripherals", ["peripherals": peripherals])
+    }
+    return scanner
+  }()
 
   public func definition() -> ModuleDefinition {
     Name("LatchNearbyDoors")
+
+    Events("onNearbyPeripherals")
 
     AsyncFunction("scanAsync") { (durationMilliseconds: Double, includeUnnamed: Bool, promise: Promise) in
       DispatchQueue.main.async {
@@ -170,6 +283,12 @@ public final class LatchNearbyDoorsModule: Module {
           includeUnnamed: includeUnnamed,
           promise: promise
         )
+      }
+    }
+
+    AsyncFunction("startContinuousAsync") { (includeUnnamed: Bool, promise: Promise) in
+      DispatchQueue.main.async {
+        self.scanner.startContinuous(includeUnnamed: includeUnnamed, promise: promise)
       }
     }
 

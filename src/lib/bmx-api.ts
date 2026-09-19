@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 
 import {
   createDirectBmxClient,
+  enrichDoorSchedules,
   loadDoors,
   releaseDoorOn,
 } from "@/lib/bmx-doors";
@@ -136,24 +137,32 @@ export function authorizationCodeFromUrl(url: string): string | null {
 }
 
 export async function fetchDoors(accessToken: string) {
-  const [snapshot, nearbyReaders] = await Promise.all([
-    loadDoors(createBmxClient(accessToken)),
-    fetchNearbyReaderMetadata(
-      accessToken,
-      bmxGraphqlUrl(),
-    ).catch(() => new Map<number, string[]>()),
-  ]);
-  return {
-    ...snapshot,
-    doors: snapshot.doors.map((door) =>
+  return loadDoors(createBmxClient(accessToken));
+}
+
+export async function enrichDoorsWithNearbyReaders(
+  accessToken: string,
+  doors: Door[],
+): Promise<Door[]> {
+  const nearbyReaders = await fetchNearbyReaderMetadata(
+    accessToken,
+    bmxGraphqlUrl(),
+  );
+  return doors.map((door) =>
       door.kind === 'access_point'
         ? {
             ...door,
             nearbyIdentifiers: [...(nearbyReaders.get(door.remoteId) ?? [])],
           }
         : door,
-    ),
-  };
+  );
+}
+
+export async function enrichDoorsWithSchedules(
+  accessToken: string,
+  doors: Door[],
+): Promise<Door[]> {
+  return enrichDoorSchedules(createBmxClient(accessToken), doors);
 }
 
 export async function releaseDoor(

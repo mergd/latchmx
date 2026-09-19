@@ -35,6 +35,34 @@ export async function storageGet(
   }
 }
 
+export async function storageGetMany(
+  keys: string[],
+): Promise<Record<string, string | null>> {
+  if (Platform.OS === 'web') {
+    return Object.fromEntries(
+      keys.map((key) => [
+        key,
+        typeof window === 'undefined' ? null : window.localStorage.getItem(key),
+      ]),
+    );
+  }
+  try {
+    const pairs = await AsyncStorage.multiGet(keys);
+    const migrated = await Promise.all(
+      pairs.map(async ([key, value]) => [
+        key,
+        value ?? (await storageGet(key)),
+      ] as const),
+    );
+    return Object.fromEntries(migrated);
+  } catch {
+    const values = await Promise.all(keys.map((key) => storageGet(key)));
+    return Object.fromEntries(
+      keys.map((key, index) => [key, values[index] ?? null]),
+    );
+  }
+}
+
 export async function storageSet(
   key: string,
   value: string,

@@ -19,3 +19,11 @@ export type NearbyPeripheral = {
     bytes: number;
   }[];
 };
+
+export type NearbyPeripheralEvent = {
+  peripherals: NearbyPeripheral[];
+};
+
+export type NearbyDoorsEvents = {
+  onNearbyPeripherals: (event: NearbyPeripheralEvent) => void;
+};

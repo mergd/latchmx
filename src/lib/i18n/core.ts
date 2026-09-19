@@ -101,6 +101,7 @@ const ERROR_KEYS: Record<string, MessageKey> = {
   [en.errors.loadKeys]: 'errors.loadKeys',
   [en.errors.copyLink]: 'errors.copyLink',
   [en.errors.revokeKey]: 'errors.revokeKey',
+  [en.errors.updateKey]: 'errors.updateKey',
   [en.errors.shareLink]: 'errors.shareLink',
   [en.errors.sessionExpired]: 'errors.sessionExpired',
   [en.errors.loadDoors]: 'errors.loadDoors',

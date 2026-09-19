@@ -1,0 +1,7 @@
+{
+  "model": "grok-imagine-image-2.0",
+  "prompt": "Premium editorial product photograph for a mobile app store campaign. A discreet Bluetooth-enabled apartment entry reader mounted beside an elegant dark stone doorway, viewed from a slight angle, with soft warm ambient light and restrained blue, lavender, yellow, and coral highlights inspired by butterfly wings. Vertical composition, sophisticated black and cream palette, shallow depth of field, wide uncluttered dark center for overlaying a mobile app screenshot. The reader must have no visible branding, labels, numbers, symbols, text, or glowing interface. No people, no phone, no screen, no UI, no words, no letters, no logo, no watermark.",
+  "aspect_ratio": "9:19.5",
+  "resolution": "2k",
+  "quality": "medium"
+}

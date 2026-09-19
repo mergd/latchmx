@@ -46,6 +46,10 @@ export default {
       return new Response(null, { status: 404 });
     }
 
+    if (url.pathname.startsWith('/.well-known/')) {
+      return serveAssociationFile(request, env);
+    }
+
     if (url.pathname.startsWith('/buildings/') && url.pathname.endsWith('.jpg')) {
       return serveBuildingImage(request, env);
     }
@@ -53,6 +57,20 @@ export default {
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+async function serveAssociationFile(request: Request, env: Env): Promise<Response> {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) {
+    return asset;
+  }
+  const headers = new Headers(asset.headers);
+  headers.set('Content-Type', 'application/json');
+  headers.set('Cache-Control', 'public, max-age=3600');
+  return new Response(request.method === 'HEAD' ? null : asset.body, {
+    status: asset.status,
+    headers,
+  });
+}
 
 async function serveBuildingImage(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);

@@ -33,6 +33,14 @@ type InviteDialogProps = {
   error: string | null;
   defaultName: string;
   defaultContact: string;
+  editing?: boolean;
+  initialValues?: {
+    ttl: KeyTtl;
+    label: string;
+    note: string;
+    inviterName: string;
+    contact: string;
+  };
   onClose: () => void;
   onCreate: (input: {
     ttl: KeyTtl;
@@ -40,6 +48,7 @@ type InviteDialogProps = {
     note: string;
     inviterName: string;
     contact: string;
+    expiryChanged: boolean;
   }) => void;
 };
 
@@ -49,16 +58,19 @@ export function InviteDialog({
   error,
   defaultName,
   defaultContact,
+  editing = false,
+  initialValues,
   onClose,
   onCreate,
 }: InviteDialogProps) {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  const [ttl, setTtl] = useState<KeyTtl>("1h");
-  const [label, setLabel] = useState("");
-  const [note, setNote] = useState("");
-  const [inviterName, setInviterName] = useState(defaultName);
-  const [contact, setContact] = useState(defaultContact);
+  const [ttl, setTtl] = useState<KeyTtl>(initialValues?.ttl ?? "1h");
+  const [label, setLabel] = useState(initialValues?.label ?? "");
+  const [note, setNote] = useState(initialValues?.note ?? "");
+  const [inviterName, setInviterName] = useState(initialValues?.inviterName ?? defaultName);
+  const [contact, setContact] = useState(initialValues?.contact ?? defaultContact);
+  const [expiryChanged, setExpiryChanged] = useState(false);
   const [durationOpen, setDurationOpen] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [menuKeyboardInset, setMenuKeyboardInset] = useState(0);
@@ -112,7 +124,9 @@ export function InviteDialog({
           onPress={busy ? undefined : onClose}
         />
         <View style={styles.card}>
-          <Text style={styles.title}>{t("invite.title")}</Text>
+          <Text style={styles.title}>
+            {editing ? t("invite.editTitle") : t("invite.title")}
+          </Text>
           <ScrollView
             style={styles.fields}
             contentContainerStyle={styles.fieldContent}
@@ -186,7 +200,10 @@ export function InviteDialog({
                 if (open) setMenuKeyboardInset(keyboardInset);
                 setDurationOpen(open);
               }}
-              onChange={setTtl}
+              onChange={(next) => {
+                setTtl(next);
+                setExpiryChanged(true);
+              }}
             />
             {error !== null ? <Text style={styles.error}>{error}</Text> : null}
           </ScrollView>
@@ -204,7 +221,7 @@ export function InviteDialog({
             <Pressable
               disabled={busy}
               onPress={() => {
-                onCreate({ ttl, label, note, inviterName, contact });
+                onCreate({ ttl, label, note, inviterName, contact, expiryChanged });
               }}
               style={({ pressed }) => [
                 styles.btn,
@@ -214,7 +231,13 @@ export function InviteDialog({
               ]}
             >
               <Text style={styles.submitLabel}>
-                {busy ? t("invite.inviting") : t("invite.title")}
+                {busy
+                  ? editing
+                    ? t("invite.saving")
+                    : t("invite.inviting")
+                  : editing
+                    ? t("common.save")
+                    : t("invite.title")}
               </Text>
             </Pressable>
           </View>

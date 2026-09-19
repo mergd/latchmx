@@ -63,6 +63,29 @@ export async function revokeKey(
   });
 }
 
+export async function updateKey(
+  accessToken: string,
+  keyId: string,
+  input: {
+    ttl?: KeyTtl;
+    label: string;
+    note: string;
+    inviterName: string;
+    contact: string;
+  },
+): Promise<IssuedKey> {
+  const payload = await keysRequest(`/api/keys/${keyId}`, {
+    method: 'PATCH',
+    accessToken,
+    body: input,
+  });
+  const updated = parseIssued(payload);
+  if (updated === null) {
+    throw new Error('Could not update that invite.');
+  }
+  return updated;
+}
+
 export async function fetchGuestSession(secret: string): Promise<GuestSession> {
   return retryGuestRead(async () => {
     const payload = await keysRequest('/api/guest', {
@@ -118,7 +141,7 @@ export async function guestUnlock(secret: string, door: Door): Promise<void> {
 async function keysRequest(
   path: string,
   input: {
-    method: 'GET' | 'POST' | 'DELETE';
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
     accessToken: string;
     body?: unknown;
   },

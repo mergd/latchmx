@@ -1,8 +1,6 @@
 import {
   ButterflyMxClient,
   ButterflyMxHttpError,
-  type ButterflyMxAccessPoint,
-  type ButterflyMxDevice,
   type ButterflyMxTenant,
 } from '@mergd/butterflymx';
 
@@ -29,14 +27,10 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
   account: AccountProfile | null;
 }> {
   try {
-    const [tenants, buildings, extraPointsRaw, extraDevicesRaw] = await Promise.all([
+    const [tenants, buildings] = await Promise.all([
       client.tenants.list({ per: 250 }),
       client.buildings.list({ per: 250 }),
-      listOrEmpty<ButterflyMxAccessPoint>(client, '/v4/access_points'),
-      listOrEmpty<ButterflyMxDevice>(client, '/v4/devices'),
     ]);
-    const extraPoints = extraPointsRaw;
-    const extraDevices = extraDevicesRaw;
     const account = accountFromTenants(tenants);
 
     const buildingNames = new Map<number, string>();
@@ -79,19 +73,15 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
         const buildingName = buildingNames.get(buildingId) ?? 'Building';
         const timeZone =
           timeZoneByBuilding.get(buildingId) ?? 'America/Los_Angeles';
-        const points = uniqueById([
-          ...accessPoints,
-          ...extraPoints.filter((point) => point.building_id === buildingId),
-        ]);
-        const hardware = uniqueById([
-          ...devices,
-          ...extraDevices.filter((device) => device.building_id === buildingId),
-        ]);
+        const points = uniqueById(accessPoints);
+        const hardware = uniqueById(devices);
         const fromPoints: Door[] = points.flatMap((point) => {
           const record = asRecord(point);
           if (record !== null && isHiddenRecord(record)) {
             return [];
           }
+          const hours = hoursFromRecord(record);
+          const sourceDisabled = record !== null && isDisabledRecord(record);
           return [{
             id: `ap-${point.id}`,
             remoteId: point.id,
@@ -101,9 +91,11 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
             buildingName,
             tenantId,
             heldOpen: record !== null && isOpenRecord(record),
-            disabled: record !== null && isDisabledRecord(record),
+            disabled: sourceDisabled,
+            sourceDisabled,
             lockout: false,
-            hours: hoursFromRecord(record),
+            schedulePending: hours.length === 0,
+            hours,
             timeZone,
             nearbyIdentifiers: [],
           }];
@@ -113,6 +105,7 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
           if (record !== null && isHiddenRecord(record)) {
             return [];
           }
+          const sourceDisabled = record !== null && isDisabledRecord(record);
           return [{
             id: `dev-${device.id}`,
             remoteId: device.id,
@@ -122,17 +115,15 @@ export async function loadDoors(client: ButterflyMxClient): Promise<{
             buildingName,
             tenantId,
             heldOpen: record !== null && isOpenRecord(record),
-            disabled: record !== null && isDisabledRecord(record),
+            disabled: sourceDisabled,
+            sourceDisabled,
             lockout: false,
             hours: hoursFromRecord(record),
             timeZone,
             nearbyIdentifiers: [],
           }];
         });
-        return [
-          ...(await attachSchedules(client, fromPoints)),
-          ...fromDevices,
-        ].map(applyLockout);
+        return [...fromPoints, ...fromDevices].map(applyAvailability);
       }),
     );
 
@@ -189,18 +180,6 @@ export function mapBmxError(error: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
-async function listOrEmpty<T>(
-  client: ButterflyMxClient,
-  path: string,
-): Promise<T[]> {
-  try {
-    const payload = await client.request<unknown>(path, { query: { per: 250 } });
-    return Array.isArray(payload) ? (payload as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function uniqueById<T extends { id: number }>(items: T[]): T[] {
   const seen = new Set<number>();
   const next: T[] = [];
@@ -252,45 +231,55 @@ function hoursFromRecord(record: JsonRecord | null): Door['hours'] {
   );
 }
 
-async function attachSchedules(
+export async function enrichDoorSchedules(
   client: ButterflyMxClient,
   doors: Door[],
 ): Promise<Door[]> {
   const need = doors.filter(
-    (door) => door.kind === 'access_point' && door.hours.length === 0,
+    (door) => door.kind === 'access_point' && door.schedulePending === true,
   );
   if (need.length === 0) {
     return doors;
   }
   const fetched = await Promise.all(
     need.map(async (door) => {
-      const rows = await listOrEmpty<unknown>(
-        client,
-        `/v4/access_points/${door.remoteId}/schedules`,
-      );
-      return [door.id, parseHoursList(rows)] as const;
+      try {
+        const payload = await client.request<unknown>(
+          `/v4/access_points/${door.remoteId}/schedules`,
+          { query: { per: 250 } },
+        );
+        const rows = Array.isArray(payload) ? payload : [];
+        return [door.id, parseHoursList(rows)] as const;
+      } catch {
+        return [door.id, null] as const;
+      }
     }),
   );
   const byId = new Map(fetched);
   return doors.map((door) => {
     const hours = byId.get(door.id);
-    if (hours === undefined || hours.length === 0) {
-      return door;
+    if (hours === null || hours === undefined) {
+      return applyAvailability(door);
     }
-    return { ...door, hours };
+    return applyAvailability({ ...door, hours, schedulePending: false });
   });
 }
 
-function applyLockout(door: Door): Door {
+function applyAvailability(door: Door): Door {
   const lockout = isLockoutDoor(door);
+  const sourceDisabled = door.sourceDisabled ?? door.disabled;
   const outside =
     lockout &&
     door.hours.length > 0 &&
     !isWithinHours(door.hours, Date.now(), door.timeZone);
   return {
     ...door,
+    sourceDisabled,
     lockout,
-    disabled: door.disabled || outside,
+    disabled:
+      sourceDisabled ||
+      (lockout && door.schedulePending === true) ||
+      outside,
   };
 }
 

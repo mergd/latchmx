@@ -16,7 +16,11 @@ export type Door = {
   tenantId: number;
   heldOpen: boolean;
   disabled: boolean;
+  /** Availability reported by ButterflyMX before local schedule rules. */
+  sourceDisabled?: boolean;
   lockout: boolean;
+  /** Schedule lookup is still pending; lockout doors fail closed meanwhile. */
+  schedulePending?: boolean;
   hours: DoorHoursWindow[];
   timeZone: string;
   /** Exact BLE reader names or serials authorized for this access point. */

@@ -1,15 +1,13 @@
 import { expect, mock, test } from 'bun:test';
+import fs from 'node:fs';
 
 let fonts = [false, null];
-let expired = false;
-let timer;
 let hidden = 0;
 const effects = [];
 const jsx = (type, props) => ({ type, props });
 mock.module('react/jsx-runtime', () => ({ jsx, jsxs: jsx }));
 mock.module('react/jsx-dev-runtime', () => ({ jsxDEV: jsx }));
 mock.module('react', () => ({
-  useState: () => [expired, value => { expired = value; }],
   useEffect: effect => effects.push(effect),
 }));
 mock.module('react-native', () => ({ Platform: { OS: 'android' }, StyleSheet: { create: x => x }, Text: 'Text', View: 'View', Pressable: 'Pressable' }));
@@ -33,22 +31,14 @@ mock.module('../src/lib/title', () => ({ APP_NAME: 'LatchMX' }));
 mock.module('../src/lib/theme', () => ({ color: {}, type: {} }));
 const { default: RootLayout, ErrorBoundary } = await import('../src/app/_layout');
 
-test('stalled fonts eventually mount the app and layout dismisses the splash', () => {
-  const original = globalThis.setTimeout;
-  globalThis.setTimeout = callback => { timer = callback; return 0; };
-  try {
-    expect(RootLayout()).toBeNull();
-    effects.splice(0).forEach(effect => effect());
-    expect(hidden).toBe(0);
-    timer();
-    const root = RootLayout();
-    expect(root.type).toBe('Root');
-    root.props.onLayout();
-    expect(hidden).toBe(1);
-  } finally { globalThis.setTimeout = original; }
+test('stalled fonts do not block mounting and layout dismisses the splash', () => {
+  const root = RootLayout();
+  expect(root.type).toBe('Root');
+  expect(hidden).toBe(0);
+  root.props.onLayout();
+  expect(hidden).toBe(1);
 });
 test('loaded or failed fonts mount immediately', () => {
-  expired = false;
   fonts = [true, null];
   expect(RootLayout().type).toBe('Root');
   fonts = [false, new Error('font unavailable')];
@@ -61,4 +51,14 @@ test('root error boundary reveals its retry screen', () => {
   effects.splice(0).forEach(effect => effect());
   expect(result.type).toBe('View');
   expect(hidden).toBe(before + 1);
+});
+
+test('resident onboarding is persisted and login toast only follows an interactive sign in', () => {
+  const home = fs.readFileSync(new URL('../src/app/index.tsx', import.meta.url), 'utf8');
+  const welcome = fs.readFileSync(new URL('../src/components/resident-welcome.tsx', import.meta.url), 'utf8');
+  expect(home).toContain("previous !== 'signed_out' || mode !== 'signed_in'");
+  expect(home).toContain('<LoginToast visible={!guest && showLoginToast} />');
+  expect(home).toContain('{!guest && introduceResident ? <ResidentWelcome /> : null}');
+  expect(welcome).toContain("const INTRO_KEY = 'latch.resident-intro.v1'");
+  expect(welcome).toContain("storageSet(INTRO_KEY, 'true')");
 });

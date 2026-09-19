@@ -21,6 +21,11 @@ export default function Root({ children }: { children: ReactNode }) {
         />
         <title>{ogTitle}</title>
         <meta name="description" content={ogDescription} />
+        <meta name="referrer" content="no-referrer" />
+        <meta
+          name="apple-itunes-app"
+          content="app-id=6804158514"
+        />
         <meta property="og:type" content="website" />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDescription} />

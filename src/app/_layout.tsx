@@ -6,7 +6,7 @@ import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -47,21 +47,10 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
+  useFonts({
     Fraunces_600SemiBold,
     Outfit_400Regular,
   });
-  const [fontWaitExpired, setFontWaitExpired] = useState(false);
-
-  useEffect(() => {
-    if (fontsLoaded || fontError != null) return;
-    const timer = setTimeout(() => setFontWaitExpired(true), 4000);
-    return () => clearTimeout(timer);
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && fontError == null && !fontWaitExpired) {
-    return null;
-  }
 
   return (
     <GestureHandlerRootView style={styles.root} onLayout={hideSplash}>
