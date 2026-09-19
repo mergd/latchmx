@@ -42,7 +42,7 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
   ios: {
-    buildNumber: '23',
+    buildNumber: '24',
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
