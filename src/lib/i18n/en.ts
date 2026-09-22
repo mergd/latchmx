@@ -1,4 +1,10 @@
 export const en = {
+  update: {
+    title: 'An update is available',
+    body: 'Update LatchMX for the latest improvements.',
+    action: 'Update',
+    later: 'Later',
+  },
   language: {
     name: 'English',
     system: 'System',

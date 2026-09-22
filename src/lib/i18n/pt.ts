@@ -1,6 +1,12 @@
 import type { Messages } from './en';
 
 export const pt: Messages = {
+  update: {
+    title: 'Uma atualização está disponível',
+    body: 'Atualize o LatchMX para ter as melhorias mais recentes.',
+    action: 'Atualizar',
+    later: 'Mais tarde',
+  },
   language: {
     name: 'Português',
     system: 'Sistema',

@@ -8,6 +8,7 @@ type ConfirmDialogProps = {
   title: string;
   body: string;
   confirmLabel: string;
+  cancelLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  cancelLabel,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -37,7 +39,7 @@ export function ConfirmDialog({
               style={({ pressed }) => [styles.btn, pressed ? styles.btnPressed : null]}
               onPress={onCancel}
             >
-              <Text style={styles.btnLabel}>{t('common.cancel')}</Text>
+              <Text style={styles.btnLabel}>{cancelLabel ?? t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [

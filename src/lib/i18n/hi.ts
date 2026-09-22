@@ -1,6 +1,12 @@
 import type { Messages } from './en';
 
 export const hi: Messages = {
+  update: {
+    title: 'अपडेट उपलब्ध है',
+    body: 'नए सुधार पाने के लिए LatchMX अपडेट करें।',
+    action: 'अपडेट करें',
+    later: 'बाद में',
+  },
   language: {
     name: 'हिन्दी',
     system: 'सिस्टम',

@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusScreen } from '@/components/status-screen';
 import { DemoNotice } from '@/components/demo-notice';
+import { UpdateNotice } from '@/components/update-notice';
 import { AnalyticsProvider } from '@/lib/analytics-provider';
 import { t } from '@/lib/i18n';
 import { LocaleProvider } from '@/lib/i18n/provider';
@@ -62,6 +63,7 @@ export default function RootLayout() {
               <View style={styles.frame}>
                 <AppStack />
                 <DemoNotice />
+                <UpdateNotice />
               </View>
             </View>
           </AnalyticsProvider>

@@ -1,6 +1,12 @@
 import type { Messages } from './en';
 
 export const ne: Messages = {
+  update: {
+    title: 'नयाँ अपडेट उपलब्ध छ',
+    body: 'नयाँ सुधारका लागि LatchMX अपडेट गर्नुहोस्।',
+    action: 'अपडेट गर्नुहोस्',
+    later: 'पछि',
+  },
   language: {
     name: 'नेपाली',
     system: 'सिस्टम',

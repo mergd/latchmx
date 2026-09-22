@@ -1,6 +1,12 @@
 import type { Messages } from './en';
 
 export const zh: Messages = {
+  update: {
+    title: '有可用更新',
+    body: '更新 LatchMX 以获取最新改进。',
+    action: '更新',
+    later: '稍后',
+  },
   language: {
     name: '中文',
     system: '系统',

@@ -22,6 +22,7 @@ mock.module('expo-status-bar', () => ({ StatusBar: 'StatusBar' }));
 mock.module('react-native-gesture-handler', () => ({ GestureHandlerRootView: 'Root' }));
 for (const [path, name] of [
   ['../src/components/status-screen','StatusScreen'], ['../src/components/demo-notice','DemoNotice'],
+  ['../src/components/update-notice','UpdateNotice'],
   ['../src/lib/analytics-provider','AnalyticsProvider'], ['../src/lib/i18n/provider','LocaleProvider'],
   ['../src/lib/session','SessionProvider'],
 ]) mock.module(path, () => ({ [name]: name }));
