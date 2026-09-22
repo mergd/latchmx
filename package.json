@@ -1,7 +1,7 @@
 {
   "name": "butterflymx",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "expo": {
     "autolinking": {
       "ios": {
@@ -68,6 +68,7 @@
     "test": "bun test ./tests/home-layout.test.mjs ./tests/demo.test.mjs && bun test ./tests/android-controls.cases.mjs && bun test ./tests/demo-session.cases.mjs && bun test ./tests/startup.cases.mjs && bun test ./tests/nearby-readers.test.ts && bun test ./tests/ios-scenes.cases.mjs",
     "start": "expo start",
     "android": "expo run:android",
+    "release:android": "ap run -- ./scripts/build-android-release.sh",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "export:web": "EXPO_WEB_OUTPUT=static expo export --platform web",

@@ -35,7 +35,7 @@ function gitIsDirty(): boolean {
 const config: ExpoConfig = {
   name: 'LatchMX',
   slug: 'butterflymx',
-  version: '1.0.0',
+  version: '1.0.1',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'latch',
@@ -84,6 +84,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     './plugins/with-ios-scene-lifecycle.cjs',
+    './plugins/with-android-release-signing.cjs',
     'expo-router',
     'expo-font',
     'expo-image',
