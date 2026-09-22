@@ -35,14 +35,14 @@ function gitIsDirty(): boolean {
 const config: ExpoConfig = {
   name: 'LatchMX',
   slug: 'butterflymx',
-  version: '1.0.1',
+  version: '1.0.2',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'latch',
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
   ios: {
-    buildNumber: '24',
+    buildNumber: '25',
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
@@ -55,7 +55,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'dev.fldr.latch',
-    versionCode: 7,
+    versionCode: 8,
     adaptiveIcon: {
       backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',
