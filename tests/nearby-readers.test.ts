@@ -6,7 +6,7 @@ import { fetchNearbyReaderMetadata } from '../src/lib/bmx-nearby-readers';
 import { observedReaderIdentifiers } from '../src/lib/nearby-reader-identifiers';
 import {
   rankNearbyDoors,
-  stabilizeNearbyDoors,
+  retainNearbyDoors,
 } from '../src/lib/nearby-ranking';
 import type { NearbyPeripheral } from '../modules/nearby-doors';
 import type { Door } from '../src/lib/types';
@@ -144,7 +144,7 @@ test('does not treat unrelated service data as a reader serial', () => {
   expect(rankNearbyDoors([door('08AABBCCDDEEFF00')], [peripheral])).toHaveLength(0);
 });
 
-test('returns up to four nearby doors in signal-strength order', () => {
+test('chooses four nearby doors by signal but displays them in stable name order', () => {
   const doors = Array.from({ length: 5 }, (_, index) => ({
     ...door(`READER-${index}`),
     id: `ap-${index}`,
@@ -163,26 +163,27 @@ test('returns up to four nearby doors in signal-strength order', () => {
 
   expect(matches).toHaveLength(4);
   expect(matches.map(({ door: match }) => match.name)).toEqual([
-    'Door 4',
-    'Door 3',
-    'Door 2',
     'Door 1',
+    'Door 2',
+    'Door 3',
+    'Door 4',
   ]);
 });
 
-test('keeps an optimistic first match until another door is clearly stronger', () => {
-  const first = { door: door('FIRST'), rssi: -65, samples: 1 };
-  const slightlyStronger = {
-    door: { ...door('SECOND'), id: 'ap-2' },
-    rssi: -62,
-    samples: 2,
-  };
-  const clearlyStronger = { ...slightlyStronger, rssi: -52 };
+test('RSSI and sample-count changes do not reshuffle visible doors', () => {
+  const alpha = { ...door('ALPHA-1'), id: 'ap-1', name: 'Alpha' };
+  const beta = { ...door('BETA-22'), id: 'ap-2', name: 'Beta' };
+  const first = rankNearbyDoors([alpha, beta], [
+    reader({ id: 'alpha', name: 'ALPHA-1', advertisedName: 'ALPHA-1', rssi: -80, samples: 1 }),
+    reader({ id: 'beta', name: 'BETA-22', advertisedName: 'BETA-22', rssi: -50, samples: 5 }),
+  ]);
+  const next = rankNearbyDoors([alpha, beta], [
+    reader({ id: 'alpha', name: 'ALPHA-1', advertisedName: 'ALPHA-1', rssi: -50, samples: 5 }),
+    reader({ id: 'beta', name: 'BETA-22', advertisedName: 'BETA-22', rssi: -80, samples: 1 }),
+  ]);
 
-  expect(stabilizeNearbyDoors([first], [slightlyStronger, first])[0]?.door.id)
-    .toBe(first.door.id);
-  expect(stabilizeNearbyDoors([first], [clearlyStronger, first])[0]?.door.id)
-    .toBe(clearlyStronger.door.id);
+  expect(first.map(({ door: match }) => match.id)).toEqual(['ap-1', 'ap-2']);
+  expect(next.map(({ door: match }) => match.id)).toEqual(['ap-1', 'ap-2']);
 });
 
 test('habit strongly reorders doors that are already similarly nearby', () => {
@@ -204,7 +205,7 @@ test('habit strongly reorders doors that are already similarly nearby', () => {
   expect(matches[0]?.door.id).toBe(usual.id);
 });
 
-test('habit cannot promote a clearly distant reader over the nearby one', () => {
+test('habit cannot promote a reader below the nearby signal threshold', () => {
   const usual = { ...door('USUAL-7'), id: 'ap-7', remoteId: 7, name: 'Usual elevator' };
   const strongest = { ...door('STRONG-8'), id: 'ap-8', remoteId: 8, name: 'Other elevator' };
   const now = 1_800_000_000_000;
@@ -212,7 +213,7 @@ test('habit cannot promote a clearly distant reader over the nearby one', () => 
     [strongest, usual],
     [
       reader({ id: 'strong', name: 'STRONG-8', advertisedName: 'STRONG-8', rssi: -55 }),
-      reader({ id: 'usual', name: 'USUAL-7', advertisedName: 'USUAL-7', rssi: -82 }),
+      reader({ id: 'usual', name: 'USUAL-7', advertisedName: 'USUAL-7', rssi: -105 }),
     ],
     {
       '1:access_point:7': { score: 100, updatedAt: now },
@@ -221,6 +222,25 @@ test('habit cannot promote a clearly distant reader over the nearby one', () => 
   );
 
   expect(matches[0]?.door.id).toBe(strongest.id);
+  expect(matches).toHaveLength(1);
+});
+
+test('retains a tapped door until its open timer ends, without duplicating it', () => {
+  const alpha = { door: { ...door('ALPHA'), id: 'ap-1' }, rssi: -65, samples: 5 };
+  const beta = { door: { ...door('BETA'), id: 'ap-2' }, rssi: -70, samples: 5 };
+  const held = [{ match: alpha, index: 0, until: 1_000 }];
+
+  expect(retainNearbyDoors([beta], held, { 'ap-1': 2_000 }, 1_500)).toEqual([
+    alpha,
+    beta,
+  ]);
+  expect(retainNearbyDoors([beta], held, { 'ap-1': 2_000 }, 2_000)).toEqual([
+    beta,
+  ]);
+  expect(retainNearbyDoors([beta, alpha], held, {}, 500)).toEqual([
+    alpha,
+    beta,
+  ]);
 });
 
 test('core door loading uses per-building endpoints without fetching schedules', async () => {

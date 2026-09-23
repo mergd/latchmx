@@ -10,7 +10,6 @@ import {
 } from './nearby-diagnostic-data';
 import {
   rankNearbyDoors,
-  stabilizeNearbyDoors,
   type NearbyDoorMatch,
 } from './nearby-ranking';
 import {
@@ -36,6 +35,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   const [matches, setMatches] = useState<NearbyDoorMatch[]>([]);
   const [preferences, setPreferences] = useState<NearbyDoorPreferences>({});
   const preferencesRef = useRef<NearbyDoorPreferences>({});
+  const recordedPreferencesRef = useRef<NearbyDoorPreferences | null>(null);
   const scanSequence = useRef(0);
   const scanInFlight = useRef(false);
 
@@ -141,7 +141,7 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
         'onNearbyPeripherals',
         ({ peripherals }) => {
           const nextMatches = rankNearbyDoors(eligible, peripherals, preferencesRef.current);
-          setMatches((current) => stabilizeNearbyDoors(current, nextMatches));
+          setMatches(nextMatches);
           if (!reportedFirstMatch && nextMatches.length > 0) {
             reportedFirstMatch = true;
             capture('nearby_scan_completed', {
@@ -233,9 +233,13 @@ export function useNearbyDoors(doors: Door[], active: boolean) {
   }, [eligible.length]);
 
   const recordSelection = useCallback(async (door: Door) => {
-    const next = await recordNearbyDoorSelection(preferencesRef.current, door);
-    preferencesRef.current = next;
-    setPreferences(next);
+    const next = await recordNearbyDoorSelection(
+      recordedPreferencesRef.current ?? preferencesRef.current,
+      door,
+    );
+    // Learn from the tap, but keep this visit's visible order steady.
+    // The new preference is loaded when the nearby view mounts again.
+    recordedPreferencesRef.current = next;
     capture('nearby_suggestion_preference_recorded');
   }, []);
 

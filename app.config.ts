@@ -42,7 +42,7 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'dark',
   owner: 'williamexpo',
   ios: {
-    buildNumber: '25',
+    buildNumber: '26',
     icon: './assets/images/icon.png',
     bundleIdentifier: 'dev.william.latch',
     supportsTablet: false,
@@ -55,7 +55,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'dev.fldr.latch',
-    versionCode: 8,
+    versionCode: 9,
     adaptiveIcon: {
       backgroundColor: '#0E0E0D',
       foregroundImage: './assets/images/android-icon-foreground.png',

@@ -1,6 +1,7 @@
 import type { NearbyPeripheral } from '../../modules/nearby-doors';
 import { observedReaderIdentifiers } from './nearby-reader-identifiers';
 import {
+  decayedPreference,
   nearbyDoorPreferenceKey,
   preferenceBonusDb,
   type NearbyDoorPreferences,
@@ -15,6 +16,12 @@ export type NearbyDoorMatch = {
   door: Door;
   rssi: number;
   samples: number;
+};
+
+export type RetainedNearbyDoor = {
+  match: NearbyDoorMatch;
+  index: number;
+  until: number;
 };
 
 export function rankNearbyDoors(
@@ -56,44 +63,55 @@ export function rankNearbyDoors(
     (score, match) => Math.max(score, signalScore(match)),
     Number.NEGATIVE_INFINITY,
   );
+  // Signal still chooses which four doors qualify, but never determines
+  // their visible order. The order only changes when the set changes.
   return matches
     .sort(
       (left, right) =>
         personalizedScore(right, strongest, preferences, now) -
           personalizedScore(left, strongest, preferences, now) ||
-        left.door.name.localeCompare(right.door.name),
+        left.door.name.localeCompare(right.door.name) ||
+        left.door.id.localeCompare(right.door.id),
     )
-    .slice(0, MAX_NEARBY_DOOR_SUGGESTIONS);
+    .slice(0, MAX_NEARBY_DOOR_SUGGESTIONS)
+    .sort(
+      (left, right) =>
+        preferenceScore(right, preferences, now) -
+          preferenceScore(left, preferences, now) ||
+        left.door.name.localeCompare(right.door.name) ||
+        left.door.id.localeCompare(right.door.id),
+    );
 }
 
-export function stabilizeNearbyDoors(
-  current: NearbyDoorMatch[],
-  next: NearbyDoorMatch[],
-  switchMarginDb = 6,
+export function retainNearbyDoors(
+  matches: NearbyDoorMatch[],
+  retained: RetainedNearbyDoor[],
+  openUntilByDoorId: Record<string, number>,
+  now = Date.now(),
 ): NearbyDoorMatch[] {
-  const currentLeader = current[0];
-  const nextLeader = next[0];
-  if (currentLeader === undefined || nextLeader === undefined) {
-    return next;
+  const visible = [...matches];
+  for (const held of [...retained].sort((left, right) => left.index - right.index)) {
+    if (Math.max(held.until, openUntilByDoorId[held.match.door.id] ?? 0) <= now) {
+      continue;
+    }
+    const liveIndex = visible.findIndex(
+      ({ door }) => door.id === held.match.door.id,
+    );
+    const match = liveIndex < 0 ? held.match : visible.splice(liveIndex, 1)[0]!;
+    visible.splice(Math.min(held.index, visible.length), 0, match);
   }
-  const currentIndex = next.findIndex(
-    ({ door }) => door.id === currentLeader.door.id,
+  return visible.slice(0, MAX_NEARBY_DOOR_SUGGESTIONS);
+}
+
+function preferenceScore(
+  match: NearbyDoorMatch,
+  preferences: NearbyDoorPreferences,
+  now: number,
+): number {
+  return decayedPreference(
+    preferences[nearbyDoorPreferenceKey(match.door)],
+    now,
   );
-  if (
-    currentIndex <= 0 ||
-    nearbyScore(nextLeader) - nearbyScore(next[currentIndex]!) >= switchMarginDb
-  ) {
-    return next;
-  }
-  return [next[currentIndex]!, ...next.filter((_, index) => index !== currentIndex)];
-}
-
-function nearbyScore(match: NearbyDoorMatch): number {
-  return signalScore(match);
-}
-
-function signalScore(match: NearbyDoorMatch): number {
-  return match.rssi + Math.min(match.samples, 5);
 }
 
 function personalizedScore(
@@ -110,6 +128,10 @@ function personalizedScore(
     signal +
     preferenceBonusDb(preferences[nearbyDoorPreferenceKey(match.door)], now)
   );
+}
+
+function signalScore(match: NearbyDoorMatch): number {
+  return match.rssi + Math.min(match.samples, 5);
 }
 
 export function readerNameMatches(

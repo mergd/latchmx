@@ -1,11 +1,19 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DoorRow } from '@/components/door-button';
 import { capture } from '@/lib/analytics';
 import { useI18n } from '@/lib/i18n/context';
-import type { NearbyDoorMatch } from '@/lib/nearby-ranking';
+import {
+  retainNearbyDoors,
+  type NearbyDoorMatch,
+  type RetainedNearbyDoor,
+} from '@/lib/nearby-ranking';
 import { color, nearbyDoorInk, type } from '@/lib/theme';
-import type { Door } from '@/lib/types';
+import { DOOR_OPEN_MS, type Door } from '@/lib/types';
+
+const UNLOCK_PENDING_HOLD_MS = 30_000;
+const FAILED_UNLOCK_HOLD_MS = 2_800;
 
 type NearbyDoorSuggestionProps = {
   available: boolean;
@@ -27,6 +35,35 @@ export function NearbyDoorSuggestion({
   onUnlock,
 }: NearbyDoorSuggestionProps) {
   const { t } = useI18n();
+  const [retained, setRetained] = useState<Record<string, RetainedNearbyDoor>>({});
+  const displayedMatches = retainNearbyDoors(
+    matches,
+    Object.values(retained),
+    openUntilByDoorId,
+  );
+
+  useEffect(() => {
+    const held = Object.values(retained);
+    if (held.length === 0) return;
+    const nextExpiry = Math.min(
+      ...held.map(({ match, until }) =>
+        Math.max(until, openUntilByDoorId[match.door.id] ?? 0),
+      ),
+    );
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      setRetained((current) =>
+        Object.fromEntries(
+          Object.entries(current).filter(
+            ([id, item]) =>
+              Math.max(item.until, openUntilByDoorId[id] ?? 0) > now,
+          ),
+        ),
+      );
+    }, Math.max(1, nextExpiry - Date.now() + 1));
+    return () => clearTimeout(timer);
+  }, [openUntilByDoorId, retained]);
+
   if (!available) {
     return null;
   }
@@ -54,7 +91,7 @@ export function NearbyDoorSuggestion({
     );
   }
 
-  if (matches.length === 0) {
+  if (displayedMatches.length === 0) {
     return null;
   }
 
@@ -64,24 +101,50 @@ export function NearbyDoorSuggestion({
         <Text style={styles.title}>{t('home.nearby')}</Text>
       </View>
       <View style={styles.results}>
-        {matches.map(({ door, rssi, samples }, index) => (
+        {displayedMatches.map((match, index) => (
           <DoorRow
-            key={door.id}
-            door={door}
+            key={match.door.id}
+            door={match.door}
             arranging={false}
             sortable={false}
-            ink={nearbyDoorInk(door)}
-            last={index === matches.length - 1}
-            openUntil={openUntilByDoorId[door.id] ?? null}
+            ink={nearbyDoorInk(match.door)}
+            last={index === displayedMatches.length - 1}
+            openUntil={openUntilByDoorId[match.door.id] ?? null}
             onUnlock={async (selected) => {
+              setRetained((current) => ({
+                ...current,
+                [selected.id]: {
+                  match,
+                  index,
+                  until: Date.now() + UNLOCK_PENDING_HOLD_MS,
+                },
+              }));
               capture('nearby_suggestion_selected', {
                 rank: index + 1,
-                rssi,
-                samples,
-                candidate_count: matches.length,
+                rssi: match.rssi,
+                samples: match.samples,
+                candidate_count: displayedMatches.length,
               });
               void onSelect(selected);
-              await onUnlock(selected);
+              try {
+                await onUnlock(selected);
+                setRetained((current) => ({
+                  ...current,
+                  [selected.id]: {
+                    ...(current[selected.id] ?? { match, index }),
+                    until: Date.now() + DOOR_OPEN_MS,
+                  },
+                }));
+              } catch (error) {
+                setRetained((current) => ({
+                  ...current,
+                  [selected.id]: {
+                    ...(current[selected.id] ?? { match, index }),
+                    until: Date.now() + FAILED_UNLOCK_HOLD_MS,
+                  },
+                }));
+                throw error;
+              }
             }}
           />
         ))}
